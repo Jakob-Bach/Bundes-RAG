@@ -13,8 +13,7 @@ documents and pages.
 - Python 3.12+
 - [uv](https://docs.astral.sh/uv/) for dependency/environment management
 - API keys for:
-  - [Mistral](https://console.mistral.ai/) (`MISTRAL_API_KEY`) — powers the query-building and answering agents (has a free tier)
-  - [Voyage AI](https://www.voyageai.com/) (`VOYAGE_API_KEY`) — powers document/question embeddings
+  - [Mistral](https://console.mistral.ai/) (`MISTRAL_API_KEY`) — powers the query-building and answering agents, and document/question embeddings (has a free tier)
   - the [DIP API](https://dip.bundestag.de/über-dip/hilfe/api) (`DIP_API_KEY`) — request one via parlamentsdokumentation@bundestag.de
 
 ## Setup
@@ -22,7 +21,7 @@ documents and pages.
 ```sh
 uv sync
 cp .env.example .env
-# then fill in MISTRAL_API_KEY, VOYAGE_API_KEY, DIP_API_KEY in .env
+# then fill in MISTRAL_API_KEY, DIP_API_KEY in .env
 ```
 
 ## Usage

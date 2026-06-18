@@ -2,7 +2,7 @@ from collections.abc import Sequence
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from langchain_voyageai import VoyageAIEmbeddings
+from langchain_mistralai import MistralAIEmbeddings
 
 from bundesrag.config import Settings
 
@@ -10,7 +10,7 @@ COLLECTION_NAME = "bundesrag"
 
 
 def get_vectorstore(settings: Settings) -> Chroma:
-    embeddings = VoyageAIEmbeddings(model=settings.embedding_model, voyage_api_key=settings.voyage_api_key)
+    embeddings = MistralAIEmbeddings(model=settings.embedding_model, api_key=settings.mistral_api_key)
     return Chroma(
         collection_name=COLLECTION_NAME,
         embedding_function=embeddings,
