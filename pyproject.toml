@@ -1,0 +1,34 @@
+[project]
+name = "bundesrag"
+version = "0.1.0"
+description = "Download German parliamentary documents and ask natural-language questions about them."
+requires-python = ">=3.12"
+dependencies = [
+    "langchain>=0.3",
+    "langchain-anthropic>=0.3",
+    "langchain-voyageai>=0.1",
+    "langchain-chroma>=0.2",
+    "chromadb>=0.5",
+    "httpx>=0.27",
+    "typer>=0.12",
+    "tqdm>=4.66",
+    "pypdf>=4.3",
+    "pydantic-settings>=2.4",
+    "python-dotenv>=1.0",
+]
+
+[project.scripts]
+bundesrag = "bundesrag.cli:app"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-mock>=3.14",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/bundesrag"]

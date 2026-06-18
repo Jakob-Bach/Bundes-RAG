@@ -157,6 +157,9 @@ ENV/
 env.bak/
 venv.bak/
 
+# Bundes-RAG downloaded documents and vector store
+data/
+
 # Spyder project settings
 .spyderproject
 .spyproject
