@@ -63,17 +63,18 @@ def run_fetch(
         pdf_paths[meta.id] = dip_client.download_pdf(pdf_url, dest)
 
     step(4, 4, "Indexieren")
-    all_chunks = []
+    num_chunks = 0
     for meta in tqdm(metas, desc="Indexieren"):
         pdf_path = pdf_paths.get(meta.id)
         if pdf_path is None:
             continue
-        all_chunks.extend(
-            load_pdf_as_chunks(pdf_path, meta, chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap)
+        chunks = load_pdf_as_chunks(
+            pdf_path, meta, chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
         )
-    add_documents(vectorstore, all_chunks)
+        add_documents(vectorstore, chunks)
+        num_chunks += len(chunks)
 
-    return FetchSummary(num_documents=len(pdf_paths), num_chunks=len(all_chunks))
+    return FetchSummary(num_documents=len(pdf_paths), num_chunks=num_chunks)
 
 
 def _list_documents(dip_client: DipClient, filters: DipQueryFilters) -> list[DocumentMeta]:
