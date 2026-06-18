@@ -15,9 +15,9 @@ class Settings(BaseSettings):
     chat_model: str = "claude-sonnet-4-5-20250929"
     embedding_model: str = "voyage-3"
 
-    # Page size for DIP API list requests, and a safety cap on documents
-    # fetched per run before the user is asked to confirm a large download.
-    dip_page_size: int = 50
+    # Safety cap on documents fetched per run before the user is asked to
+    # confirm a large download (the DIP API itself pages in fixed batches
+    # of 100 and offers no page-size parameter).
     dip_max_results_before_confirm: int = 200
 
     retrieval_top_k: int = 5
