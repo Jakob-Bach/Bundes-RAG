@@ -6,13 +6,13 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
-    anthropic_api_key: str
+    mistral_api_key: str
     voyage_api_key: str
     dip_api_key: str
 
     data_dir: Path = Path("data")
 
-    chat_model: str = "claude-sonnet-4-5-20250929"
+    chat_model: str = "mistral-large-latest"
     embedding_model: str = "voyage-3"
 
     # Safety cap on documents fetched per run before the user is asked to

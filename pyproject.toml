@@ -5,7 +5,7 @@ description = "Download German parliamentary documents and ask natural-language 
 requires-python = ">=3.12"
 dependencies = [
     "langchain>=0.3",
-    "langchain-anthropic>=0.3",
+    "langchain-mistralai>=0.2",
     "langchain-voyageai>=0.1",
     "langchain-chroma>=0.2",
     "chromadb>=0.5",

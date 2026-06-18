@@ -46,7 +46,7 @@ class QueryAgent:
 
 
 def create_query_agent(settings: "Settings") -> QueryAgent:
-    from langchain_anthropic import ChatAnthropic
+    from langchain_mistralai import ChatMistralAI
 
-    llm = ChatAnthropic(model=settings.chat_model, api_key=settings.anthropic_api_key)
+    llm = ChatMistralAI(model=settings.chat_model, api_key=settings.mistral_api_key)
     return QueryAgent(llm.with_structured_output(QueryAgentResult))

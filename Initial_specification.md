@@ -43,7 +43,7 @@ The Bundes-RAG application allows users to download German parliamentary documen
 - Programming language: Python
 - Environment management: uv
 - Testing: pytest
-- AI: Claude via LangChain
+- AI: Mistral via LangChain
 - Progress monitoring: tqdm
 
 ## Coding and Engineering Guidelines

@@ -75,6 +75,6 @@ def answer_question(question: str, settings: Settings, *, llm: ChatLlm, vectorst
 
 
 def create_chat_llm(settings: Settings) -> ChatLlm:
-    from langchain_anthropic import ChatAnthropic
+    from langchain_mistralai import ChatMistralAI
 
-    return ChatAnthropic(model=settings.chat_model, api_key=settings.anthropic_api_key)
+    return ChatMistralAI(model=settings.chat_model, api_key=settings.mistral_api_key)
