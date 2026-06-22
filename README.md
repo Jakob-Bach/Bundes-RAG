@@ -68,6 +68,16 @@ uv run bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelli
 The answer is generated only from the indexed documents, and is followed by
 a "Quellen:" list naming the source document and page for each passage used.
 
+### Clear all data
+
+```sh
+uv run bundesrag clear
+```
+
+Deletes every downloaded PDF, resets the Chroma vector store, and clears the
+pending-index manifest. Asks for confirmation unless `--yes`/`-y` is passed.
+This is destructive and irreversible.
+
 ## Data storage
 
 - `data/pdfs/` — downloaded PDFs, organized by document type

@@ -7,7 +7,7 @@ from tqdm import tqdm
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
 from bundesrag.dip.models import DrucksacheMeta, PlenarprotokollMeta
-from bundesrag.ingestion.manifest import PendingDocument, add_pending, load_pending, remove_pending
+from bundesrag.ingestion.manifest import PendingDocument, add_pending, load_pending, remove_pending, save_pending
 from bundesrag.ingestion.pdf_loader import load_pdf_as_chunks
 from bundesrag.progress import step
 from bundesrag.query_agent.agent import QueryAgent
@@ -26,6 +26,11 @@ class DownloadSummary:
 class IndexSummary:
     num_documents: int
     num_chunks: int
+
+
+@dataclass
+class DeleteSummary:
+    num_files: int
 
 
 class DownloadAborted(RuntimeError):
@@ -91,6 +96,18 @@ def run_index(settings: Settings, *, vectorstore: Chroma) -> IndexSummary:
         remove_pending(settings, entry.pdf_path)
 
     return IndexSummary(num_documents=num_documents, num_chunks=num_chunks)
+
+
+def run_delete_all(settings: Settings, *, vectorstore: Chroma) -> DeleteSummary:
+    num_files = 0
+    if settings.pdf_dir.exists():
+        for pdf_path in settings.pdf_dir.rglob("*.pdf"):
+            pdf_path.unlink()
+            num_files += 1
+
+    vectorstore.delete_collection()
+    save_pending(settings, [])
+    return DeleteSummary(num_files=num_files)
 
 
 def _list_documents(dip_client: DipClient, filters: DipQueryFilters) -> list[DocumentMeta]:

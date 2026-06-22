@@ -19,6 +19,7 @@ uv run pytest tests/test_dip_client.py::test_name  # run a single test
 uv run bundesrag download "Plenarprotokolle der 21. Wahlperiode."  # download docs
 uv run bundesrag index  # index downloaded-but-not-yet-indexed docs
 uv run bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?"  # query
+uv run bundesrag clear  # delete all downloaded PDFs and reset the vector store
 ```
 
 Requires `MISTRAL_API_KEY` and `DIP_API_KEY` in `.env` (copy from
@@ -28,9 +29,9 @@ or network access is needed for unit tests.
 
 ## Architecture
 
-Three pipelines share the same Chroma vector store (`src/bundesrag/vectorstore.py`),
+Four pipelines share the same Chroma vector store (`src/bundesrag/vectorstore.py`),
 all driven from `src/bundesrag/cli.py` (Typer app with `download`, `index`,
-and `ask` commands, German-language help text and output).
+`ask`, and `clear` commands, German-language help text and output).
 
 **`download` pipeline** (`ingestion/pipeline.py: run_download`):
 1. `query_agent/agent.py: QueryAgent` — a Mistral LLM with structured output
@@ -74,6 +75,12 @@ and `ask` commands, German-language help text and output).
 3. A deduplicated "Quellen:" list (citation label, page, document number) is
    built from chunk metadata (`citation_for`) and returned alongside the
    answer text.
+
+**`clear` pipeline** (`ingestion/pipeline.py: run_delete_all`): removes every
+PDF under `data/pdfs/`, calls `vectorstore.delete_collection()` to reset the
+Chroma collection, and clears `data/pending_index.json`. The CLI asks for
+confirmation (`--yes`/`-y` to skip it) since this is destructive and
+irreversible.
 
 **Dependency injection**: all pipelines take their LLM, vectorstore, and DIP
 client as constructor/function arguments (not constructed internally), which

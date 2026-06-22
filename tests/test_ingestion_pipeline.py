@@ -7,7 +7,7 @@ from langchain_core.documents import Document
 from bundesrag.dip.models import DrucksacheMeta, Fundstelle, PlenarprotokollMeta
 from bundesrag.ingestion import pipeline
 from bundesrag.ingestion.manifest import load_pending
-from bundesrag.ingestion.pipeline import DownloadAborted, run_download, run_index
+from bundesrag.ingestion.pipeline import DownloadAborted, run_delete_all, run_download, run_index
 from bundesrag.query_agent.schema import DipQueryFilters
 
 
@@ -194,3 +194,32 @@ def test_run_index_without_pending_documents_is_a_noop(settings, vectorstore):
     assert summary.num_documents == 0
     assert summary.num_chunks == 0
     vectorstore.add_documents.assert_not_called()
+
+
+def test_run_delete_all_removes_pdfs_resets_vectorstore_and_manifest(
+    settings, query_agent, dip_client, vectorstore
+):
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+    )
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4")
+
+    summary = run_delete_all(settings, vectorstore=vectorstore)
+
+    assert summary.num_files == 1
+    assert not pdf_path.exists()
+    vectorstore.delete_collection.assert_called_once()
+    assert load_pending(settings) == []
+
+
+def test_run_delete_all_without_downloads_is_a_noop_on_files(settings, vectorstore):
+    summary = run_delete_all(settings, vectorstore=vectorstore)
+
+    assert summary.num_files == 0
+    vectorstore.delete_collection.assert_called_once()

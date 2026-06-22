@@ -2,7 +2,7 @@ import typer
 
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
-from bundesrag.ingestion.pipeline import DownloadAborted, run_download, run_index
+from bundesrag.ingestion.pipeline import DownloadAborted, run_delete_all, run_download, run_index
 from bundesrag.query_agent.agent import create_query_agent
 from bundesrag.rag.answer_agent import answer_question, create_chat_llm
 from bundesrag.vectorstore import get_vectorstore
@@ -38,6 +38,18 @@ def index() -> None:
     settings = Settings()
     summary = run_index(settings, vectorstore=get_vectorstore(settings))
     typer.echo(f"Fertig: {summary.num_documents} Dokumente, {summary.num_chunks} Textabschnitte gespeichert.")
+
+
+@app.command()
+def clear(yes: bool = typer.Option(False, "--yes", "-y", help="Ohne Rückfrage löschen.")) -> None:
+    """Löscht alle heruntergeladenen Dokumente und setzt die Vektordatenbank zurück."""
+    if not yes and not typer.confirm(
+        "Wirklich alle heruntergeladenen Dokumente und die Vektordatenbank löschen?"
+    ):
+        raise typer.Exit(code=1)
+    settings = Settings()
+    summary = run_delete_all(settings, vectorstore=get_vectorstore(settings))
+    typer.echo(f"Fertig: {summary.num_files} Dateien gelöscht und Vektordatenbank zurückgesetzt.")
 
 
 @app.command()
