@@ -61,6 +61,25 @@ a "Quellen:" list naming the source document and page for each passage used.
 Both are gitignored; re-running `fetch` does not duplicate already-indexed
 chunks.
 
+## Running with Docker
+
+Build the image:
+
+```sh
+docker build -t bundesrag .
+```
+
+Run a command, passing your `.env` for the API keys and mounting `data/` so
+downloaded PDFs and the vector store persist across runs:
+
+```sh
+docker run --rm -it --env-file .env -v ./data:/app/data bundesrag fetch "Plenarprotokolle der 21. Wahlperiode."
+docker run --rm -it --env-file .env -v ./data:/app/data bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?"
+```
+
+The container's entrypoint is the `bundesrag` CLI, so any arguments after the
+image name are passed straight to it (run without arguments to see `--help`).
+
 ## Running tests
 
 ```sh
