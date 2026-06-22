@@ -26,23 +26,38 @@ cp .env.example .env
 
 ## Usage
 
-### Download and index documents
+### Download documents
 
 ```sh
-uv run bundesrag fetch "Plenarprotokolle der 21. Wahlperiode."
+uv run bundesrag download "Plenarprotokolle der 21. Wahlperiode."
 ```
 
-The agent turns the prompt into a DIP API query, downloads the matching
-PDFs into `data/pdfs/`, and stores their chunked, embedded text in a local
-Chroma vector store under `data/chroma/`. If the prompt is too ambiguous to
-turn into a valid query (e.g. no date or Wahlperiode given for a broad
-request), it will ask a clarifying question on the terminal instead of
-guessing. If a query matches an unusually large number of documents, it will
-ask for confirmation before downloading all of them.
+The agent turns the prompt into a DIP API query and downloads the matching
+PDFs into `data/pdfs/`. If the prompt is too ambiguous to turn into a valid
+query (e.g. no date or Wahlperiode given for a broad request), it will ask a
+clarifying question on the terminal instead of guessing. If a query matches
+an unusually large number of documents, it will ask for confirmation before
+downloading all of them.
 
 ```sh
-uv run bundesrag fetch "Drucksachen des Bundesministeriums für Forschung, Technologie und Raumfahrt seit dem 01.01.2026."
+uv run bundesrag download "Drucksachen des Bundesministeriums für Forschung, Technologie und Raumfahrt seit dem 01.01.2026."
 ```
+
+Downloaded documents are recorded as pending in `data/pending_index.json`
+until they're indexed.
+
+### Index downloaded documents
+
+```sh
+uv run bundesrag index
+```
+
+Chunks and embeds the text of any downloaded-but-not-yet-indexed PDFs into a
+local Chroma vector store under `data/chroma/`. This is a separate step from
+`download` because indexing can take considerably longer and may fail
+partway through (e.g. an API rate limit); each document is removed from the
+pending list right after it's indexed, so re-running `index` after a failure
+or interruption only processes what's left.
 
 ### Ask questions
 
@@ -56,9 +71,10 @@ a "Quellen:" list naming the source document and page for each passage used.
 ## Data storage
 
 - `data/pdfs/` — downloaded PDFs, organized by document type
+- `data/pending_index.json` — manifest of downloaded PDFs awaiting indexing
 - `data/chroma/` — the persisted vector store
 
-Both are gitignored; re-running `fetch` does not duplicate already-indexed
+All are gitignored; re-running `index` does not duplicate already-indexed
 chunks.
 
 ## Running with Docker
@@ -73,7 +89,8 @@ Run a command, passing your `.env` for the API keys and mounting `data/` so
 downloaded PDFs and the vector store persist across runs:
 
 ```sh
-docker run --rm -it --env-file .env -v ./data:/app/data bundesrag fetch "Plenarprotokolle der 21. Wahlperiode."
+docker run --rm -it --env-file .env -v ./data:/app/data bundesrag download "Plenarprotokolle der 21. Wahlperiode."
+docker run --rm -it --env-file .env -v ./data:/app/data bundesrag index
 docker run --rm -it --env-file .env -v ./data:/app/data bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?"
 ```
 
@@ -91,6 +108,6 @@ uv run pytest
 - The DIP API's `urheber`/`ressort_fdf` filters use AND semantics when given
   multiple values in one call (an intersection, not an OR). Querying for
   documents matching either of two distinct ministries/fractions requires
-  two separate `fetch` runs.
-- `fetch` only downloads `Drucksache` and `Plenarprotokoll` documents (not
+  two separate `download` runs.
+- `download` only fetches `Drucksache` and `Plenarprotokoll` documents (not
   `Vorgang`, `Person`, or `Aktivität` records).

@@ -16,7 +16,8 @@ pages.
 uv sync                  # install/sync dependencies
 uv run pytest            # run the test suite
 uv run pytest tests/test_dip_client.py::test_name  # run a single test
-uv run bundesrag fetch "Plenarprotokolle der 21. Wahlperiode."  # download + index docs
+uv run bundesrag download "Plenarprotokolle der 21. Wahlperiode."  # download docs
+uv run bundesrag index  # index downloaded-but-not-yet-indexed docs
 uv run bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?"  # query
 ```
 
@@ -27,11 +28,11 @@ or network access is needed for unit tests.
 
 ## Architecture
 
-Two pipelines share the same Chroma vector store (`src/bundesrag/vectorstore.py`),
-both driven from `src/bundesrag/cli.py` (Typer app with `fetch` and `ask`
-commands, German-language help text and output).
+Three pipelines share the same Chroma vector store (`src/bundesrag/vectorstore.py`),
+all driven from `src/bundesrag/cli.py` (Typer app with `download`, `index`,
+and `ask` commands, German-language help text and output).
 
-**`fetch` pipeline** (`ingestion/pipeline.py: run_fetch`):
+**`download` pipeline** (`ingestion/pipeline.py: run_download`):
 1. `query_agent/agent.py: QueryAgent` — a Mistral LLM with structured output
    (`with_structured_output(QueryAgentResult)`) turns the NL prompt into
    `DipQueryFilters` (`query_agent/schema.py`). If the LLM can't produce valid
@@ -42,15 +43,26 @@ commands, German-language help text and output).
    `list_plenarprotokolle`), paginating via the API's cursor until it stops
    advancing. Note `urheber`/`ressort_fdf` are repeated-value filters with AND
    semantics across distinct values in the DIP API — querying for either of
-   two ministries/fractions needs two separate `fetch` calls.
+   two ministries/fractions needs two separate `download` calls.
 3. If the result count exceeds `settings.dip_max_results_before_confirm`, the
    user is asked to confirm (via an injected `confirm` callable) before
    downloading.
-4. PDFs are downloaded into `data/pdfs/<endpoint>/` and parsed page-by-page
-   (`ingestion/pdf_loader.py`), chunked with `RecursiveCharacterTextSplitter`,
-   and given deterministic ids (`{dokumentnummer}-p{page}-{chunk_index}`) so
-   re-running `fetch` on overlapping document sets upserts rather than
-   duplicating chunks in Chroma.
+4. PDFs are downloaded into `data/pdfs/<endpoint>/`, and each one is recorded
+   as a `PendingDocument` in the `data/pending_index.json` manifest
+   (`ingestion/manifest.py`) for the `index` command to pick up later.
+
+**`index` pipeline** (`ingestion/pipeline.py: run_index`):
+1. Reads pending entries from `ingestion/manifest.py: load_pending`.
+2. Each PDF is parsed page-by-page (`ingestion/pdf_loader.py`), chunked with
+   `RecursiveCharacterTextSplitter`, and given deterministic ids
+   (`{dokumentnummer}-p{page}-{chunk_index}`) so re-running `index` on
+   overlapping document sets upserts rather than duplicating chunks in Chroma.
+3. After each document is embedded into the vector store, it's removed from
+   the manifest individually (`remove_pending`) — this is why `download` and
+   `index` are separate commands: indexing many documents takes considerably
+   longer than downloading them and can fail partway (e.g. an API rate
+   limit), so re-running `index` after a failure only reprocesses documents
+   still listed as pending, instead of redoing the whole batch.
 
 **`ask` pipeline** (`rag/answer_agent.py: answer_question`):
 1. `rag/retriever.py: retrieve` does a similarity search against the Chroma
@@ -63,7 +75,7 @@ commands, German-language help text and output).
    built from chunk metadata (`citation_for`) and returned alongside the
    answer text.
 
-**Dependency injection**: both pipelines take their LLM, vectorstore, and DIP
+**Dependency injection**: all pipelines take their LLM, vectorstore, and DIP
 client as constructor/function arguments (not constructed internally), which
 is how the test suite substitutes fakes/mocks without touching real APIs.
 `create_query_agent` / `create_chat_llm` are the only places that construct

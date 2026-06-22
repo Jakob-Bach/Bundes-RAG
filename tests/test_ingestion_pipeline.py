@@ -6,7 +6,8 @@ from langchain_core.documents import Document
 
 from bundesrag.dip.models import DrucksacheMeta, Fundstelle, PlenarprotokollMeta
 from bundesrag.ingestion import pipeline
-from bundesrag.ingestion.pipeline import FetchAborted, run_fetch
+from bundesrag.ingestion.manifest import load_pending
+from bundesrag.ingestion.pipeline import DownloadAborted, run_download, run_index
 from bundesrag.query_agent.schema import DipQueryFilters
 
 
@@ -52,35 +53,34 @@ def fake_chunking(mocker):
     )
 
 
-def test_run_fetch_happy_path(settings, query_agent, dip_client, vectorstore):
-    summary = run_fetch(
+def test_run_download_happy_path(settings, query_agent, dip_client):
+    summary = run_download(
         "Drucksachen der 21. Wahlperiode.",
         settings,
         query_agent=query_agent,
         dip_client=dip_client,
-        vectorstore=vectorstore,
         ask_user=lambda q: "",
     )
 
     assert summary.num_documents == 1
-    assert summary.num_chunks == 1
     dip_client.download_pdf.assert_called_once()
-    vectorstore.add_documents.assert_called_once()
+    pending = load_pending(settings)
+    assert len(pending) == 1
+    assert pending[0].kind == "drucksache"
 
 
-def test_run_fetch_passes_filters_to_drucksache_listing(settings, query_agent, dip_client, vectorstore):
+def test_run_download_passes_filters_to_drucksache_listing(settings, query_agent, dip_client):
     query_agent.build_query.return_value = DipQueryFilters(
         endpoint="drucksache",
         datum_start=date(2026, 1, 1),
         ressort_fdf=["Bundesministerium für Forschung, Technologie und Raumfahrt"],
     )
 
-    run_fetch(
+    run_download(
         "Drucksachen des BMFTR seit dem 01.01.2026.",
         settings,
         query_agent=query_agent,
         dip_client=dip_client,
-        vectorstore=vectorstore,
         ask_user=lambda q: "",
     )
 
@@ -89,7 +89,7 @@ def test_run_fetch_passes_filters_to_drucksache_listing(settings, query_agent, d
     assert kwargs["ressort_fdf"] == ["Bundesministerium für Forschung, Technologie und Raumfahrt"]
 
 
-def test_run_fetch_uses_plenarprotokoll_listing(settings, query_agent, dip_client, vectorstore):
+def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_client):
     query_agent.build_query.return_value = DipQueryFilters(endpoint="plenarprotokoll", wahlperiode=21)
     dip_client.list_plenarprotokolle.return_value = [
         PlenarprotokollMeta(
@@ -102,12 +102,11 @@ def test_run_fetch_uses_plenarprotokoll_listing(settings, query_agent, dip_clien
         )
     ]
 
-    summary = run_fetch(
+    summary = run_download(
         "Plenarprotokolle der 21. Wahlperiode.",
         settings,
         query_agent=query_agent,
         dip_client=dip_client,
-        vectorstore=vectorstore,
         ask_user=lambda q: "",
     )
 
@@ -115,7 +114,7 @@ def test_run_fetch_uses_plenarprotokoll_listing(settings, query_agent, dip_clien
     assert summary.num_documents == 1
 
 
-def test_run_fetch_asks_for_confirmation_above_cap(settings, query_agent, dip_client, vectorstore):
+def test_run_download_asks_for_confirmation_above_cap(settings, query_agent, dip_client):
     settings.dip_max_results_before_confirm = 0
     confirm_calls = []
 
@@ -123,12 +122,11 @@ def test_run_fetch_asks_for_confirmation_above_cap(settings, query_agent, dip_cl
         confirm_calls.append(message)
         return True
 
-    run_fetch(
+    run_download(
         "Drucksachen der 21. Wahlperiode.",
         settings,
         query_agent=query_agent,
         dip_client=dip_client,
-        vectorstore=vectorstore,
         ask_user=lambda q: "",
         confirm=confirm,
     )
@@ -136,19 +134,63 @@ def test_run_fetch_asks_for_confirmation_above_cap(settings, query_agent, dip_cl
     assert len(confirm_calls) == 1
 
 
-def test_run_fetch_aborts_when_user_declines_confirmation(settings, query_agent, dip_client, vectorstore):
+def test_run_download_aborts_when_user_declines_confirmation(settings, query_agent, dip_client):
     settings.dip_max_results_before_confirm = 0
 
-    with pytest.raises(FetchAborted):
-        run_fetch(
+    with pytest.raises(DownloadAborted):
+        run_download(
             "Drucksachen der 21. Wahlperiode.",
             settings,
             query_agent=query_agent,
             dip_client=dip_client,
-            vectorstore=vectorstore,
             ask_user=lambda q: "",
             confirm=lambda message: False,
         )
 
     dip_client.download_pdf.assert_not_called()
+    assert load_pending(settings) == []
+
+
+def test_run_index_happy_path(settings, query_agent, dip_client, vectorstore):
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+    )
+
+    summary = run_index(settings, vectorstore=vectorstore)
+
+    assert summary.num_documents == 1
+    assert summary.num_chunks == 1
+    vectorstore.add_documents.assert_called_once()
+    assert load_pending(settings) == []
+
+
+def test_run_index_leaves_remaining_documents_pending_on_failure(settings, query_agent, dip_client, vectorstore):
+    dip_client.list_drucksachen.return_value = [_drucksache_meta("1"), _drucksache_meta("2")]
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+    )
+
+    vectorstore.add_documents.side_effect = [None, RuntimeError("boom")]
+
+    with pytest.raises(RuntimeError):
+        run_index(settings, vectorstore=vectorstore)
+
+    pending = load_pending(settings)
+    assert len(pending) == 1
+    assert pending[0].meta["id"] == "2"
+
+
+def test_run_index_without_pending_documents_is_a_noop(settings, vectorstore):
+    summary = run_index(settings, vectorstore=vectorstore)
+
+    assert summary.num_documents == 0
+    assert summary.num_chunks == 0
     vectorstore.add_documents.assert_not_called()

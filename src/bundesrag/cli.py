@@ -2,7 +2,7 @@ import typer
 
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
-from bundesrag.ingestion.pipeline import FetchAborted, run_fetch
+from bundesrag.ingestion.pipeline import DownloadAborted, run_download, run_index
 from bundesrag.query_agent.agent import create_query_agent
 from bundesrag.rag.answer_agent import answer_question, create_chat_llm
 from bundesrag.vectorstore import get_vectorstore
@@ -11,25 +11,32 @@ app = typer.Typer(help="Lade Bundestagsdokumente herunter und stelle Fragen dazu
 
 
 @app.command()
-def fetch(prompt: str) -> None:
-    """Lädt Dokumente passend zu PROMPT herunter und indexiert sie."""
+def download(prompt: str) -> None:
+    """Lädt Dokumente passend zu PROMPT herunter, ohne sie zu indexieren."""
     settings = Settings()
     dip_client = DipClient(api_key=settings.dip_api_key)
     try:
-        summary = run_fetch(
+        summary = run_download(
             prompt,
             settings,
             query_agent=create_query_agent(settings),
             dip_client=dip_client,
-            vectorstore=get_vectorstore(settings),
             ask_user=typer.prompt,
             confirm=typer.confirm,
         )
-    except FetchAborted as exc:
+    except DownloadAborted as exc:
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
     finally:
         dip_client.close()
+    typer.echo(f"Fertig: {summary.num_documents} Dokumente heruntergeladen.")
+
+
+@app.command()
+def index() -> None:
+    """Indexiert zuvor heruntergeladene, aber noch nicht indexierte Dokumente."""
+    settings = Settings()
+    summary = run_index(settings, vectorstore=get_vectorstore(settings))
     typer.echo(f"Fertig: {summary.num_documents} Dokumente, {summary.num_chunks} Textabschnitte gespeichert.")
 
 

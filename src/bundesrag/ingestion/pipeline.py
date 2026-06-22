@@ -7,6 +7,7 @@ from tqdm import tqdm
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
 from bundesrag.dip.models import DrucksacheMeta, PlenarprotokollMeta
+from bundesrag.ingestion.manifest import PendingDocument, add_pending, load_pending, remove_pending
 from bundesrag.ingestion.pdf_loader import load_pdf_as_chunks
 from bundesrag.progress import step
 from bundesrag.query_agent.agent import QueryAgent
@@ -17,12 +18,17 @@ DocumentMeta = DrucksacheMeta | PlenarprotokollMeta
 
 
 @dataclass
-class FetchSummary:
+class DownloadSummary:
+    num_documents: int
+
+
+@dataclass
+class IndexSummary:
     num_documents: int
     num_chunks: int
 
 
-class FetchAborted(RuntimeError):
+class DownloadAborted(RuntimeError):
     pass
 
 
@@ -30,20 +36,19 @@ def _default_confirm(message: str) -> bool:
     return input(message).strip().lower() in ("j", "ja", "y", "yes")
 
 
-def run_fetch(
+def run_download(
     nl_prompt: str,
     settings: Settings,
     *,
     query_agent: QueryAgent,
     dip_client: DipClient,
-    vectorstore: Chroma,
     ask_user: Callable[[str], str] = input,
     confirm: Callable[[str], bool] = _default_confirm,
-) -> FetchSummary:
-    step(1, 4, "Anfrage interpretieren")
+) -> DownloadSummary:
+    step(1, 3, "Anfrage interpretieren")
     filters = query_agent.build_query(nl_prompt, ask_user=ask_user)
 
-    step(2, 4, "Dokumente suchen")
+    step(2, 3, "Dokumente suchen")
     metas = _list_documents(dip_client, filters)
     if len(metas) > settings.dip_max_results_before_confirm:
         proceed = confirm(
@@ -51,30 +56,41 @@ def run_fetch(
             f"{settings.dip_max_results_before_confirm}. Trotzdem alle herunterladen? [j/N] "
         )
         if not proceed:
-            raise FetchAborted(f"Abgebrochen: {len(metas)} Dokumente überschreiten den Grenzwert.")
+            raise DownloadAborted(f"Abgebrochen: {len(metas)} Dokumente überschreiten den Grenzwert.")
 
-    step(3, 4, "PDFs herunterladen")
-    pdf_paths = {}
+    step(3, 3, "PDFs herunterladen")
+    pending = []
     for meta in tqdm(metas, desc="Download"):
         pdf_url = meta.fundstelle.pdf_url
         if not pdf_url:
             continue
         dest = settings.pdf_dir / filters.endpoint / f"{meta.dokumentnummer.replace('/', '_')}.pdf"
-        pdf_paths[meta.id] = dip_client.download_pdf(pdf_url, dest)
+        pdf_path = dip_client.download_pdf(pdf_url, dest)
+        pending.append(
+            PendingDocument(kind=filters.endpoint, pdf_path=pdf_path, meta=meta.model_dump(mode="json"))
+        )
 
-    step(4, 4, "Indexieren")
+    add_pending(settings, pending)
+    return DownloadSummary(num_documents=len(pending))
+
+
+def run_index(settings: Settings, *, vectorstore: Chroma) -> IndexSummary:
+    pending = load_pending(settings)
+    num_documents = 0
     num_chunks = 0
-    for meta in tqdm(metas, desc="Indexieren"):
-        pdf_path = pdf_paths.get(meta.id)
-        if pdf_path is None:
-            continue
+    for entry in tqdm(pending, desc="Indexieren"):
+        meta = entry.resolve_meta()
         chunks = load_pdf_as_chunks(
-            pdf_path, meta, chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
+            entry.pdf_path, meta, chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
         )
         add_documents(vectorstore, chunks)
+        num_documents += 1
         num_chunks += len(chunks)
+        # Remove right after each document so a crash/abort mid-run leaves only the
+        # not-yet-indexed documents pending, not the whole batch.
+        remove_pending(settings, entry.pdf_path)
 
-    return FetchSummary(num_documents=len(pdf_paths), num_chunks=num_chunks)
+    return IndexSummary(num_documents=num_documents, num_chunks=num_chunks)
 
 
 def _list_documents(dip_client: DipClient, filters: DipQueryFilters) -> list[DocumentMeta]:
