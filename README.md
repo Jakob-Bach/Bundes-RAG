@@ -1,5 +1,9 @@
 # Bundes-RAG
 
+[![CI](https://github.com/Jakob-Bach/Bundes-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/Jakob-Bach/Bundes-RAG/actions/workflows/ci.yml)
+[![License](https://img.shields.io/github/license/Jakob-Bach/Bundes-RAG)](LICENSE)
+[![Last commit](https://img.shields.io/github/last-commit/Jakob-Bach/Bundes-RAG)](https://github.com/Jakob-Bach/Bundes-RAG/commits/main)
+
 An agentically engineered search tool for German parliamentary documentation.
 
 Bundes-RAG lets you describe, in German, which documents from the Bundestag's
