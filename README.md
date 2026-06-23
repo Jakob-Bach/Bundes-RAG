@@ -1,6 +1,7 @@
 # Bundes-RAG
 
 [![CI](https://github.com/Jakob-Bach/Bundes-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/Jakob-Bach/Bundes-RAG/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/Jakob-Bach/Bundes-RAG/graph/badge.svg)](https://codecov.io/gh/Jakob-Bach/Bundes-RAG)
 [![License](https://img.shields.io/github/license/Jakob-Bach/Bundes-RAG)](LICENSE)
 [![Last commit](https://img.shields.io/github/last-commit/Jakob-Bach/Bundes-RAG)](https://github.com/Jakob-Bach/Bundes-RAG/commits/main)
 

@@ -23,6 +23,7 @@ bundesrag = "bundesrag.cli:app"
 [dependency-groups]
 dev = [
     "pytest>=8.3",
+    "pytest-cov>=5.0",
     "pytest-mock>=3.14",
 ]
 
