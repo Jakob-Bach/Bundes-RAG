@@ -3,11 +3,17 @@ import typer
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
 from bundesrag.ingestion.pipeline import DownloadAborted, run_delete_all, run_download, run_index
-from bundesrag.query_agent.agent import create_query_agent
+from bundesrag.query_agent.agent import create_query_agent, format_filters
+from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.rag.answer_agent import answer_question, create_chat_llm
 from bundesrag.vectorstore import get_vectorstore
 
 app = typer.Typer(help="Lade Bundestagsdokumente herunter und stelle Fragen dazu.")
+
+
+def _confirm_filters(filters: DipQueryFilters) -> bool:
+    typer.echo(format_filters(filters))
+    return typer.confirm("Abfrage so verwenden?")
 
 
 @app.command()
@@ -23,6 +29,7 @@ def download(prompt: str) -> None:
             dip_client=dip_client,
             ask_user=typer.prompt,
             confirm=typer.confirm,
+            confirm_filters=_confirm_filters,
         )
     except DownloadAborted as exc:
         typer.echo(str(exc))

@@ -10,7 +10,7 @@ from bundesrag.dip.models import DrucksacheMeta, PlenarprotokollMeta
 from bundesrag.ingestion.manifest import PendingDocument, add_pending, load_pending, remove_pending, save_pending
 from bundesrag.ingestion.pdf_loader import load_pdf_as_chunks
 from bundesrag.progress import step
-from bundesrag.query_agent.agent import QueryAgent
+from bundesrag.query_agent.agent import QueryAgent, default_confirm_filters
 from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.vectorstore import add_documents
 
@@ -49,9 +49,10 @@ def run_download(
     dip_client: DipClient,
     ask_user: Callable[[str], str] = input,
     confirm: Callable[[str], bool] = _default_confirm,
+    confirm_filters: Callable[[DipQueryFilters], bool] = default_confirm_filters,
 ) -> DownloadSummary:
     step(1, 3, "Anfrage interpretieren")
-    filters = query_agent.build_query(nl_prompt, ask_user=ask_user)
+    filters = query_agent.build_query(nl_prompt, ask_user=ask_user, confirm_filters=confirm_filters)
 
     step(2, 3, "Dokumente suchen")
     metas = _list_documents(dip_client, filters)
