@@ -50,7 +50,9 @@ def citation_for(doc: Document) -> str:
     return ", ".join(parts)
 
 
-def answer_question(question: str, settings: Settings, *, llm: ChatLlm, vectorstore: Chroma) -> AnswerResult:
+def answer_question(
+    question: str, settings: Settings, *, llm: ChatLlm, vectorstore: Chroma
+) -> AnswerResult:
     step(1, 2, "Passagen suchen")
     docs = retrieve(question, vectorstore, settings.retrieval_top_k)
 

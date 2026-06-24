@@ -21,6 +21,12 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Lint with Ruff
+        run: uv run ruff check .
+
+      - name: Check formatting with Ruff
+        run: uv run ruff format --check .
+
       - name: Run tests
         run: uv run pytest --cov=bundesrag --cov-report=xml
 

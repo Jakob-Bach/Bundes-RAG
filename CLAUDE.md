@@ -14,8 +14,11 @@ pages.
 
 ```sh
 uv sync                  # install/sync dependencies
+uv run pre-commit install  # one-time: enable lint/format checks on commit
 uv run pytest            # run the test suite
 uv run pytest tests/test_dip_client.py::test_name  # run a single test
+uv run ruff check .      # lint
+uv run ruff format .     # format
 uv run bundesrag download "Plenarprotokolle der 21. Wahlperiode."  # download docs
 uv run bundesrag index  # index downloaded-but-not-yet-indexed docs
 uv run bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?"  # query

@@ -11,7 +11,8 @@ DocumentMeta = DrucksacheMeta | PlenarprotokollMeta
 
 
 class PendingDocument(BaseModel):
-    """A downloaded PDF that still needs to be chunked/embedded into the vector store."""
+    """A downloaded PDF that still needs to be chunked/embedded into the vector
+    store."""
 
     kind: Literal["drucksache", "plenarprotokoll"]
     pdf_path: Path
@@ -39,7 +40,11 @@ def save_pending(settings: Settings, entries: list[PendingDocument]) -> None:
     path = manifest_path(settings)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
-        json.dumps([entry.model_dump(mode="json") for entry in entries], ensure_ascii=False, indent=2),
+        json.dumps(
+            [entry.model_dump(mode="json") for entry in entries],
+            ensure_ascii=False,
+            indent=2,
+        ),
         encoding="utf-8",
     )
 

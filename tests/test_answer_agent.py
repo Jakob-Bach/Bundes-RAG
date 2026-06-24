@@ -6,12 +6,19 @@ from bundesrag.rag.answer_agent import answer_question, citation_for, format_con
 def _doc(text: str, label: str, page: int, dokumentnummer: str) -> Document:
     return Document(
         page_content=text,
-        metadata={"citation_label": label, "page": page, "dokumentnummer": dokumentnummer},
+        metadata={
+            "citation_label": label,
+            "page": page,
+            "dokumentnummer": dokumentnummer,
+        },
     )
 
 
 def test_format_context_numbers_chunks_with_citation_labels():
-    docs = [_doc("Erster Auszug.", "Antrag 19/1", 1, "19/1"), _doc("Zweiter Auszug.", "Antrag 19/2", 3, "19/2")]
+    docs = [
+        _doc("Erster Auszug.", "Antrag 19/1", 1, "19/1"),
+        _doc("Zweiter Auszug.", "Antrag 19/2", 3, "19/2"),
+    ]
 
     context = format_context(docs)
 
@@ -26,7 +33,10 @@ def test_citation_for_includes_label_page_and_dokumentnummer():
 
 
 def test_answer_question_builds_prompt_and_dedupes_sources(settings, mocker):
-    docs = [_doc("Erster.", "Antrag 19/1", 1, "19/1"), _doc("Zweiter.", "Antrag 19/1", 1, "19/1")]
+    docs = [
+        _doc("Erster.", "Antrag 19/1", 1, "19/1"),
+        _doc("Zweiter.", "Antrag 19/1", 1, "19/1"),
+    ]
     vectorstore = mocker.Mock()
     vectorstore.similarity_search.return_value = docs
 

@@ -10,7 +10,9 @@ COLLECTION_NAME = "bundesrag"
 
 
 def get_vectorstore(settings: Settings) -> Chroma:
-    embeddings = MistralAIEmbeddings(model=settings.embedding_model, api_key=settings.mistral_api_key)
+    embeddings = MistralAIEmbeddings(
+        model=settings.embedding_model, api_key=settings.mistral_api_key
+    )
     return Chroma(
         collection_name=COLLECTION_NAME,
         embedding_function=embeddings,

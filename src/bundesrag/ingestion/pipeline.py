@@ -7,7 +7,13 @@ from tqdm import tqdm
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
 from bundesrag.dip.models import DrucksacheMeta, PlenarprotokollMeta
-from bundesrag.ingestion.manifest import PendingDocument, add_pending, load_pending, remove_pending, save_pending
+from bundesrag.ingestion.manifest import (
+    PendingDocument,
+    add_pending,
+    load_pending,
+    remove_pending,
+    save_pending,
+)
 from bundesrag.ingestion.pdf_loader import load_pdf_as_chunks
 from bundesrag.progress import step
 from bundesrag.query_agent.agent import QueryAgent, default_confirm_filters
@@ -59,10 +65,13 @@ def run_download(
     if len(metas) > settings.dip_max_results_before_confirm:
         proceed = confirm(
             f"{len(metas)} Dokumente gefunden, mehr als der Grenzwert von "
-            f"{settings.dip_max_results_before_confirm}. Trotzdem alle herunterladen? [j/N] "
+            f"{settings.dip_max_results_before_confirm}. "
+            "Trotzdem alle herunterladen? [j/N] "
         )
         if not proceed:
-            raise DownloadAborted(f"Abgebrochen: {len(metas)} Dokumente überschreiten den Grenzwert.")
+            raise DownloadAborted(
+                f"Abgebrochen: {len(metas)} Dokumente überschreiten den Grenzwert."
+            )
 
     step(3, 3, "PDFs herunterladen")
     pending = []
@@ -73,7 +82,11 @@ def run_download(
         dest = settings.pdf_dir / filters.endpoint / f"{meta.dokumentnummer.replace('/', '_')}.pdf"
         pdf_path = dip_client.download_pdf(pdf_url, dest)
         pending.append(
-            PendingDocument(kind=filters.endpoint, pdf_path=pdf_path, meta=meta.model_dump(mode="json"))
+            PendingDocument(
+                kind=filters.endpoint,
+                pdf_path=pdf_path,
+                meta=meta.model_dump(mode="json"),
+            )
         )
 
     add_pending(settings, pending)
@@ -87,7 +100,10 @@ def run_index(settings: Settings, *, vectorstore: Chroma) -> IndexSummary:
     for entry in tqdm(pending, desc="Indexieren"):
         meta = entry.resolve_meta()
         chunks = load_pdf_as_chunks(
-            entry.pdf_path, meta, chunk_size=settings.chunk_size, chunk_overlap=settings.chunk_overlap
+            entry.pdf_path,
+            meta,
+            chunk_size=settings.chunk_size,
+            chunk_overlap=settings.chunk_overlap,
         )
         add_documents(vectorstore, chunks)
         num_documents += 1

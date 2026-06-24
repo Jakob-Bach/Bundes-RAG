@@ -62,7 +62,9 @@ def test_build_query_follows_clarification_loop():
     filters = DipQueryFilters(endpoint="drucksache", wahlperiode=21)
     llm = _StubLlm(
         [
-            QueryAgentResult(clarification=ClarificationRequest(question="Welche Wahlperiode meinst du?")),
+            QueryAgentResult(
+                clarification=ClarificationRequest(question="Welche Wahlperiode meinst du?")
+            ),
             QueryAgentResult(filters=filters),
         ]
     )
@@ -74,7 +76,9 @@ def test_build_query_follows_clarification_loop():
 
     agent = QueryAgent(llm, today=date(2026, 6, 18))
     result = agent.build_query(
-        "Drucksachen der Bundesregierung.", ask_user=ask_user, confirm_filters=lambda f: True
+        "Drucksachen der Bundesregierung.",
+        ask_user=ask_user,
+        confirm_filters=lambda f: True,
     )
 
     assert result == filters
@@ -109,7 +113,12 @@ def test_build_query_returns_filters_once_confirmed():
 def test_build_query_asks_again_when_filters_rejected():
     rejected_filters = DipQueryFilters(endpoint="plenarprotokoll", wahlperiode=20)
     accepted_filters = DipQueryFilters(endpoint="plenarprotokoll", wahlperiode=21)
-    llm = _StubLlm([QueryAgentResult(filters=rejected_filters), QueryAgentResult(filters=accepted_filters)])
+    llm = _StubLlm(
+        [
+            QueryAgentResult(filters=rejected_filters),
+            QueryAgentResult(filters=accepted_filters),
+        ]
+    )
     confirm_calls = []
 
     def confirm_filters(f):
@@ -124,7 +133,9 @@ def test_build_query_asks_again_when_filters_rejected():
 
     agent = QueryAgent(llm, today=date(2026, 6, 18))
     result = agent.build_query(
-        "Plenarprotokolle einer Wahlperiode.", ask_user=ask_user, confirm_filters=confirm_filters
+        "Plenarprotokolle einer Wahlperiode.",
+        ask_user=ask_user,
+        confirm_filters=confirm_filters,
     )
 
     assert result == accepted_filters

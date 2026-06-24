@@ -20,7 +20,8 @@ class StructuredLlm(Protocol):
 
 
 def format_filters(filters: DipQueryFilters) -> str:
-    """Renders DipQueryFilters as a human-readable German summary for confirmation."""
+    """Renders DipQueryFilters as a human-readable German summary for
+    confirmation."""
     lines = [f"Geplante DIP-Abfrage (Endpunkt: {filters.endpoint}):"]
     if filters.datum_start or filters.datum_end:
         lines.append(f"  Zeitraum: {filters.datum_start or '...'} bis {filters.datum_end or '...'}")
@@ -43,7 +44,12 @@ def format_filters(filters: DipQueryFilters) -> str:
 
 def default_confirm_filters(filters: DipQueryFilters) -> bool:
     print(format_filters(filters))
-    return input("Abfrage so verwenden? [j/N] ").strip().lower() in ("j", "ja", "y", "yes")
+    return input("Abfrage so verwenden? [j/N] ").strip().lower() in (
+        "j",
+        "ja",
+        "y",
+        "yes",
+    )
 
 
 class QueryAgent:
@@ -79,7 +85,8 @@ class QueryAgent:
             messages.append({"role": "assistant", "content": question})
             messages.append({"role": "user", "content": answer})
         raise QueryAgentError(
-            "Konnte aus der Anfrage auch nach mehreren Rückfragen keine gültige DIP-Abfrage erstellen."
+            "Konnte aus der Anfrage auch nach mehreren Rückfragen keine "
+            "gültige DIP-Abfrage erstellen."
         )
 
 

@@ -27,6 +27,7 @@ documents and pages.
 uv sync
 cp .env.example .env
 # then fill in MISTRAL_API_KEY, DIP_API_KEY in .env
+uv run pre-commit install  # lint/format checks on every commit
 ```
 
 ## Usage

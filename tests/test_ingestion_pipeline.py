@@ -1,5 +1,4 @@
 from datetime import date
-from pathlib import Path
 
 import pytest
 from langchain_core.documents import Document
@@ -7,7 +6,12 @@ from langchain_core.documents import Document
 from bundesrag.dip.models import DrucksacheMeta, Fundstelle, PlenarprotokollMeta
 from bundesrag.ingestion import pipeline
 from bundesrag.ingestion.manifest import load_pending
-from bundesrag.ingestion.pipeline import DownloadAborted, run_delete_all, run_download, run_index
+from bundesrag.ingestion.pipeline import (
+    DownloadAborted,
+    run_delete_all,
+    run_download,
+    run_index,
+)
 from bundesrag.query_agent.schema import DipQueryFilters
 
 
@@ -19,7 +23,9 @@ def _drucksache_meta(id_: str = "1") -> DrucksacheMeta:
         wahlperiode=21,
         drucksachetyp="Antrag",
         titel="Ein Titel",
-        fundstelle=Fundstelle(id=id_, dokumentart="Drucksache", pdf_url=f"https://example.org/{id_}.pdf"),
+        fundstelle=Fundstelle(
+            id=id_, dokumentart="Drucksache", pdf_url=f"https://example.org/{id_}.pdf"
+        ),
     )
 
 
@@ -90,7 +96,9 @@ def test_run_download_passes_filters_to_drucksache_listing(settings, query_agent
 
 
 def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_client):
-    query_agent.build_query.return_value = DipQueryFilters(endpoint="plenarprotokoll", wahlperiode=21)
+    query_agent.build_query.return_value = DipQueryFilters(
+        endpoint="plenarprotokoll", wahlperiode=21
+    )
     dip_client.list_plenarprotokolle.return_value = [
         PlenarprotokollMeta(
             id="1",
@@ -98,7 +106,11 @@ def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_cl
             datum=date(2026, 1, 5),
             wahlperiode=21,
             titel="Protokoll der 1. Sitzung",
-            fundstelle=Fundstelle(id="1", dokumentart="Plenarprotokoll", pdf_url="https://example.org/21_1.pdf"),
+            fundstelle=Fundstelle(
+                id="1",
+                dokumentart="Plenarprotokoll",
+                pdf_url="https://example.org/21_1.pdf",
+            ),
         )
     ]
 
@@ -168,8 +180,13 @@ def test_run_index_happy_path(settings, query_agent, dip_client, vectorstore):
     assert load_pending(settings) == []
 
 
-def test_run_index_leaves_remaining_documents_pending_on_failure(settings, query_agent, dip_client, vectorstore):
-    dip_client.list_drucksachen.return_value = [_drucksache_meta("1"), _drucksache_meta("2")]
+def test_run_index_leaves_remaining_documents_pending_on_failure(
+    settings, query_agent, dip_client, vectorstore
+):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
     run_download(
         "Drucksachen der 21. Wahlperiode.",
         settings,

@@ -1,7 +1,6 @@
 from datetime import date
 
 import httpx
-import pytest
 
 from bundesrag.dip.client import DipClient
 
@@ -32,7 +31,10 @@ def test_list_drucksachen_sends_filters_and_auth_header():
     def handler(request: httpx.Request) -> httpx.Response:
         captured_requests.append(request)
         if len(captured_requests) == 1:
-            return httpx.Response(200, json={"numFound": 1, "cursor": "abc", "documents": [DRUCKSACHE_RAW]})
+            return httpx.Response(
+                200,
+                json={"numFound": 1, "cursor": "abc", "documents": [DRUCKSACHE_RAW]},
+            )
         return httpx.Response(200, json={"numFound": 1, "cursor": "abc", "documents": []})
 
     client = _client(httpx.MockTransport(handler))
@@ -50,7 +52,10 @@ def test_list_drucksachen_sends_filters_and_auth_header():
     assert request.headers["authorization"] == "ApiKey test-key"
     assert request.url.params["f.datum.start"] == "2026-01-01"
     assert request.url.params["f.wahlperiode"] == "21"
-    assert request.url.params["f.ressort_fdf"] == "Bundesministerium für Forschung, Technologie und Raumfahrt"
+    assert (
+        request.url.params["f.ressort_fdf"]
+        == "Bundesministerium für Forschung, Technologie und Raumfahrt"
+    )
 
 
 def test_pagination_follows_cursor_until_results_are_exhausted():
@@ -71,8 +76,16 @@ def test_pagination_follows_cursor_until_results_are_exhausted():
 
 def test_max_results_caps_pagination():
     pages = [
-        {"numFound": 5, "cursor": "page2", "documents": [DRUCKSACHE_RAW, DRUCKSACHE_RAW]},
-        {"numFound": 5, "cursor": "page3", "documents": [DRUCKSACHE_RAW, DRUCKSACHE_RAW]},
+        {
+            "numFound": 5,
+            "cursor": "page2",
+            "documents": [DRUCKSACHE_RAW, DRUCKSACHE_RAW],
+        },
+        {
+            "numFound": 5,
+            "cursor": "page3",
+            "documents": [DRUCKSACHE_RAW, DRUCKSACHE_RAW],
+        },
     ]
 
     def handler(request: httpx.Request) -> httpx.Response:

@@ -2,7 +2,12 @@ import typer
 
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
-from bundesrag.ingestion.pipeline import DownloadAborted, run_delete_all, run_download, run_index
+from bundesrag.ingestion.pipeline import (
+    DownloadAborted,
+    run_delete_all,
+    run_download,
+    run_index,
+)
 from bundesrag.query_agent.agent import create_query_agent, format_filters
 from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.rag.answer_agent import answer_question, create_chat_llm
@@ -44,11 +49,16 @@ def index() -> None:
     """Indexiert zuvor heruntergeladene, aber noch nicht indexierte Dokumente."""
     settings = Settings()
     summary = run_index(settings, vectorstore=get_vectorstore(settings))
-    typer.echo(f"Fertig: {summary.num_documents} Dokumente, {summary.num_chunks} Textabschnitte gespeichert.")
+    typer.echo(
+        f"Fertig: {summary.num_documents} Dokumente, "
+        f"{summary.num_chunks} Textabschnitte gespeichert."
+    )
 
 
 @app.command()
-def clear(yes: bool = typer.Option(False, "--yes", "-y", help="Ohne Rückfrage löschen.")) -> None:
+def clear(
+    yes: bool = typer.Option(False, "--yes", "-y", help="Ohne Rückfrage löschen."),
+) -> None:
     """Löscht alle heruntergeladenen Dokumente und setzt die Vektordatenbank zurück."""
     if not yes and not typer.confirm(
         "Wirklich alle heruntergeladenen Dokumente und die Vektordatenbank löschen?"
@@ -64,7 +74,10 @@ def ask(question: str) -> None:
     """Beantwortet QUESTION auf Basis der gespeicherten Dokumente."""
     settings = Settings()
     result = answer_question(
-        question, settings, llm=create_chat_llm(settings), vectorstore=get_vectorstore(settings)
+        question,
+        settings,
+        llm=create_chat_llm(settings),
+        vectorstore=get_vectorstore(settings),
     )
     typer.echo(result.answer_text)
     typer.echo("\nQuellen:")

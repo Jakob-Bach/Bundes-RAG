@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from bundesrag.ingestion.manifest import PendingDocument, add_pending, load_pending, remove_pending
+from bundesrag.ingestion.manifest import (
+    PendingDocument,
+    add_pending,
+    load_pending,
+    remove_pending,
+)
 
 
 def _pending(pdf_path: str, doc_id: str) -> PendingDocument:

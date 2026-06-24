@@ -13,7 +13,9 @@ def _meta(titel: str | None) -> DrucksacheMeta:
         wahlperiode=19,
         drucksachetyp="Antrag",
         titel=titel,
-        fundstelle=Fundstelle(id="68852", dokumentart="Drucksache", pdf_url="https://example.org/19_1.pdf"),
+        fundstelle=Fundstelle(
+            id="68852", dokumentart="Drucksache", pdf_url="https://example.org/19_1.pdf"
+        ),
     )
 
 
@@ -41,7 +43,11 @@ class _FakeReader:
 
 
 def test_load_pdf_as_chunks_builds_citation_metadata(monkeypatch, tmp_path):
-    monkeypatch.setattr(pdf_loader, "PdfReader", lambda path: _FakeReader(["Erste Seite. " * 50, "Zweite Seite."]))
+    monkeypatch.setattr(
+        pdf_loader,
+        "PdfReader",
+        lambda path: _FakeReader(["Erste Seite. " * 50, "Zweite Seite."]),
+    )
     pdf_path = tmp_path / "doc.pdf"
     pdf_path.write_bytes(b"%PDF-1.4 fake")
 

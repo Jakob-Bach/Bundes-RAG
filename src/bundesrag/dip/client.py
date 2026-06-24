@@ -81,7 +81,9 @@ class DipClient:
             params["f.zuordnung"] = zuordnung
         return params
 
-    def _paginate(self, endpoint: str, params: dict, model: type, max_results: int | None) -> Iterator:
+    def _paginate(
+        self, endpoint: str, params: dict, model: type, max_results: int | None
+    ) -> Iterator:
         request_params = {**params, "format": "json"}
         cursor: str | None = None
         fetched = 0
@@ -110,9 +112,16 @@ class DipClient:
         with self._http.stream("GET", url) as response:
             response.raise_for_status()
             total = int(response.headers.get("content-length", 0)) or None
-            with open(dest_path, "wb") as f, tqdm(
-                total=total, unit="B", unit_scale=True, desc=dest_path.name, leave=False
-            ) as bar:
+            with (
+                open(dest_path, "wb") as f,
+                tqdm(
+                    total=total,
+                    unit="B",
+                    unit_scale=True,
+                    desc=dest_path.name,
+                    leave=False,
+                ) as bar,
+            ):
                 for chunk in response.iter_bytes():
                     f.write(chunk)
                     bar.update(len(chunk))
