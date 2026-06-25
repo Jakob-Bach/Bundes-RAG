@@ -41,5 +41,6 @@ MESSAGES = {
     "step_interpret_request": "Anfrage interpretieren",
     "step_search_documents": "Dokumente suchen",
     "step_search_passages": "Passagen suchen",
+    "unexpected_error": "Ein unerwarteter Fehler ist aufgetreten. Details siehe Logdatei.",
     "unknown_document": "Unbekanntes Dokument",
 }

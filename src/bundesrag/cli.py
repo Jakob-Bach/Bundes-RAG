@@ -1,3 +1,5 @@
+import logging
+
 import typer
 
 from bundesrag.config import Settings
@@ -9,12 +11,15 @@ from bundesrag.ingestion.pipeline import (
     run_download,
     run_index,
 )
+from bundesrag.logging_config import LOGGER_NAME, setup_logging
 from bundesrag.query_agent.agent import create_query_agent, format_filters
 from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.rag.answer_agent import answer_question, create_chat_llm
 from bundesrag.vectorstore import get_vectorstore
 
 app = typer.Typer(help="Download Bundestag documents and ask questions about them.")
+
+logger = logging.getLogger(LOGGER_NAME)
 
 
 def _confirm_filters(filters: DipQueryFilters) -> bool:
@@ -27,6 +32,8 @@ def download(prompt: str) -> None:
     """Downloads documents matching PROMPT, without indexing them."""
     settings = Settings()
     set_language(settings.language)
+    setup_logging(settings)
+    logger.info("download query: %s", prompt)
     dip_client = DipClient(api_key=settings.dip_api_key)
     try:
         summary = run_download(
@@ -39,8 +46,13 @@ def download(prompt: str) -> None:
             confirm_filters=_confirm_filters,
         )
     except DownloadAborted as exc:
+        logger.warning("download aborted: %s", exc)
         typer.echo(str(exc))
         raise typer.Exit(code=1) from exc
+    except Exception:
+        logger.exception("download failed")
+        typer.echo(t("unexpected_error"))
+        raise typer.Exit(code=1) from None
     finally:
         dip_client.close()
     typer.echo(t("download_done", num_documents=summary.num_documents))
@@ -51,7 +63,14 @@ def index() -> None:
     """Indexes previously downloaded but not yet indexed documents."""
     settings = Settings()
     set_language(settings.language)
-    summary = run_index(settings, vectorstore=get_vectorstore(settings))
+    setup_logging(settings)
+    logger.info("index command invoked")
+    try:
+        summary = run_index(settings, vectorstore=get_vectorstore(settings))
+    except Exception:
+        logger.exception("index failed")
+        typer.echo(t("unexpected_error"))
+        raise typer.Exit(code=1) from None
     typer.echo(t("index_done", num_documents=summary.num_documents, num_chunks=summary.num_chunks))
 
 
@@ -62,9 +81,17 @@ def clear(
     """Deletes all downloaded documents and resets the vector store."""
     settings = Settings()
     set_language(settings.language)
+    setup_logging(settings)
+    logger.info("clear command invoked")
     if not yes and not typer.confirm(t("confirm_delete_all")):
+        logger.warning("clear aborted: user declined confirmation")
         raise typer.Exit(code=1)
-    summary = run_delete_all(settings, vectorstore=get_vectorstore(settings))
+    try:
+        summary = run_delete_all(settings, vectorstore=get_vectorstore(settings))
+    except Exception:
+        logger.exception("clear failed")
+        typer.echo(t("unexpected_error"))
+        raise typer.Exit(code=1) from None
     typer.echo(t("delete_done", num_files=summary.num_files))
 
 
@@ -73,12 +100,19 @@ def ask(question: str) -> None:
     """Answers QUESTION based on the stored documents."""
     settings = Settings()
     set_language(settings.language)
-    result = answer_question(
-        question,
-        settings,
-        llm=create_chat_llm(settings),
-        vectorstore=get_vectorstore(settings),
-    )
+    setup_logging(settings)
+    logger.info("ask query: %s", question)
+    try:
+        result = answer_question(
+            question,
+            settings,
+            llm=create_chat_llm(settings),
+            vectorstore=get_vectorstore(settings),
+        )
+    except Exception:
+        logger.exception("ask failed")
+        typer.echo(t("unexpected_error"))
+        raise typer.Exit(code=1) from None
     typer.echo(result.answer_text)
     typer.echo(t("sources_header"))
     for source in result.sources:

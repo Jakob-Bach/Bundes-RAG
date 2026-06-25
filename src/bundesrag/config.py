@@ -33,3 +33,7 @@ class Settings(BaseSettings):
     @property
     def chroma_dir(self) -> Path:
         return self.data_dir / "chroma"
+
+    @property
+    def log_file(self) -> Path:
+        return self.data_dir / "bundesrag.log"

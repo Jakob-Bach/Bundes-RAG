@@ -39,5 +39,6 @@ MESSAGES = {
     "step_interpret_request": "Interpreting request",
     "step_search_documents": "Searching documents",
     "step_search_passages": "Searching passages",
+    "unexpected_error": "An unexpected error occurred. See the log file for details.",
     "unknown_document": "Unknown document",
 }
