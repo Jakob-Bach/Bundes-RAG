@@ -6,6 +6,7 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 
 from bundesrag.config import Settings
+from bundesrag.i18n import t
 from bundesrag.progress import step
 from bundesrag.rag.retriever import retrieve
 
@@ -31,32 +32,32 @@ class AnswerResult:
 def format_context(docs: Sequence[Document]) -> str:
     parts = []
     for i, doc in enumerate(docs, start=1):
-        label = doc.metadata.get("citation_label", "Unbekanntes Dokument")
+        label = doc.metadata.get("citation_label", t("unknown_document"))
         page = doc.metadata.get("page")
-        header = f"[{i}] {label}" + (f", Seite {page}" if page else "")
+        header = f"[{i}] {label}" + (t("page_suffix", page=page) if page else "")
         parts.append(f"{header}\n{doc.page_content}")
     return "\n\n".join(parts)
 
 
 def citation_for(doc: Document) -> str:
-    label = doc.metadata.get("citation_label", "Unbekanntes Dokument")
+    label = doc.metadata.get("citation_label", t("unknown_document"))
     page = doc.metadata.get("page")
     dokumentnummer = doc.metadata.get("dokumentnummer")
     parts = [label]
     if page:
-        parts.append(f"S. {page}")
+        parts.append(t("page_short", page=page))
     if dokumentnummer:
-        parts.append(f"Drucksache/Protokoll {dokumentnummer}")
+        parts.append(t("document_reference", dokumentnummer=dokumentnummer))
     return ", ".join(parts)
 
 
 def answer_question(
     question: str, settings: Settings, *, llm: ChatLlm, vectorstore: Chroma
 ) -> AnswerResult:
-    step(1, 2, "Passagen suchen")
+    step(1, 2, t("step_search_passages"))
     docs = retrieve(question, vectorstore, settings.retrieval_top_k)
 
-    step(2, 2, "Antwort erzeugen")
+    step(2, 2, t("step_generate_answer"))
     context = format_context(docs)
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},

@@ -1,0 +1,43 @@
+MESSAGES = {
+    "app_help": "Download Bundestag documents and ask questions about them.",
+    "ask_help": "Answers QUESTION based on the stored documents.",
+    "ask_query_feedback": "What should be adjusted about the query?",
+    "clear_help": "Deletes all downloaded documents and resets the vector store.",
+    "clear_yes_option_help": "Delete without asking for confirmation.",
+    "confirm_delete_all": "Really delete all downloaded documents and reset the vector store?",
+    "confirm_large_download": (
+        "{count} documents found, more than the limit of {limit}. Download all anyway? [y/N] "
+    ),
+    "confirm_use_query": "Use this query?",
+    "confirm_use_query_yn": "Use this query? [y/N] ",
+    "delete_done": "Done: {num_files} files deleted and vector store reset.",
+    "document_reference": "Document/protocol {dokumentnummer}",
+    "download_aborted": "Aborted: {count} documents exceed the limit.",
+    "download_done": "Done: {num_documents} documents downloaded.",
+    "download_help": "Downloads documents matching PROMPT, without indexing them.",
+    "filter_dokumentnummer": "  Document number: {value}",
+    "filter_drucksachetyp": "  Document type: {value}",
+    "filter_ressort": "  Department: {value}",
+    "filter_titel": "  Title contains: {value}",
+    "filter_urheber": "  Originator: {value}",
+    "filter_wahlperiode": "  Electoral term: {value}",
+    "filter_zeitraum": "  Date range: {start} to {end}",
+    "filter_zuordnung": "  Assignment: {value}",
+    "index_done": "Done: {num_documents} documents, {num_chunks} chunks stored.",
+    "index_help": "Indexes previously downloaded but not yet indexed documents.",
+    "page_short": "p. {page}",
+    "page_suffix": ", page {page}",
+    "planned_query_header": "Planned DIP query (endpoint: {endpoint}):",
+    "progress_step": "[Step {n}/{total}] {name}",
+    "query_agent_failed": (
+        "Could not build a valid DIP query from the request even after "
+        "several clarification rounds."
+    ),
+    "sources_header": "\nSources:",
+    "step_download_pdfs": "Downloading PDFs",
+    "step_generate_answer": "Generating answer",
+    "step_interpret_request": "Interpreting request",
+    "step_search_documents": "Searching documents",
+    "step_search_passages": "Searching passages",
+    "unknown_document": "Unknown document",
+}

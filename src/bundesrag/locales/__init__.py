@@ -1,0 +1,1 @@
+AVAILABLE_LANGUAGES = ("de", "en")

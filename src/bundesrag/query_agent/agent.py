@@ -2,6 +2,7 @@ from collections.abc import Callable
 from datetime import date
 from typing import TYPE_CHECKING, Protocol
 
+from bundesrag.i18n import t
 from bundesrag.query_agent.prompts import build_system_prompt
 from bundesrag.query_agent.schema import DipQueryFilters, QueryAgentResult
 
@@ -20,31 +21,33 @@ class StructuredLlm(Protocol):
 
 
 def format_filters(filters: DipQueryFilters) -> str:
-    """Renders DipQueryFilters as a human-readable German summary for
-    confirmation."""
-    lines = [f"Geplante DIP-Abfrage (Endpunkt: {filters.endpoint}):"]
+    """Renders DipQueryFilters as a human-readable summary for confirmation,
+    in the configured output language."""
+    lines = [t("planned_query_header", endpoint=filters.endpoint)]
     if filters.datum_start or filters.datum_end:
-        lines.append(f"  Zeitraum: {filters.datum_start or '...'} bis {filters.datum_end or '...'}")
+        lines.append(
+            t("filter_zeitraum", start=filters.datum_start or "...", end=filters.datum_end or "...")
+        )
     if filters.wahlperiode is not None:
-        lines.append(f"  Wahlperiode: {filters.wahlperiode}")
+        lines.append(t("filter_wahlperiode", value=filters.wahlperiode))
     if filters.dokumentnummer:
-        lines.append(f"  Dokumentnummer: {filters.dokumentnummer}")
+        lines.append(t("filter_dokumentnummer", value=filters.dokumentnummer))
     if filters.zuordnung:
-        lines.append(f"  Zuordnung: {filters.zuordnung}")
+        lines.append(t("filter_zuordnung", value=filters.zuordnung))
     if filters.drucksachetyp:
-        lines.append(f"  Drucksachetyp: {filters.drucksachetyp}")
+        lines.append(t("filter_drucksachetyp", value=filters.drucksachetyp))
     if filters.urheber:
-        lines.append(f"  Urheber: {', '.join(filters.urheber)}")
+        lines.append(t("filter_urheber", value=", ".join(filters.urheber)))
     if filters.ressort_fdf:
-        lines.append(f"  Ressort: {', '.join(filters.ressort_fdf)}")
+        lines.append(t("filter_ressort", value=", ".join(filters.ressort_fdf)))
     if filters.titel:
-        lines.append(f"  Titel enthält: {', '.join(filters.titel)}")
+        lines.append(t("filter_titel", value=", ".join(filters.titel)))
     return "\n".join(lines)
 
 
 def default_confirm_filters(filters: DipQueryFilters) -> bool:
     print(format_filters(filters))
-    return input("Abfrage so verwenden? [j/N] ").strip().lower() in (
+    return input(t("confirm_use_query_yn")).strip().lower() in (
         "j",
         "ja",
         "y",
@@ -76,7 +79,7 @@ class QueryAgent:
             if result.filters is not None:
                 if confirm_filters(result.filters):
                     return result.filters
-                feedback = ask_user("Was soll an der Abfrage angepasst werden?")
+                feedback = ask_user(t("ask_query_feedback"))
                 messages.append({"role": "assistant", "content": format_filters(result.filters)})
                 messages.append({"role": "user", "content": feedback})
                 continue
@@ -84,10 +87,7 @@ class QueryAgent:
             answer = ask_user(question)
             messages.append({"role": "assistant", "content": question})
             messages.append({"role": "user", "content": answer})
-        raise QueryAgentError(
-            "Konnte aus der Anfrage auch nach mehreren Rückfragen keine "
-            "gültige DIP-Abfrage erstellen."
-        )
+        raise QueryAgentError(t("query_agent_failed"))
 
 
 def create_query_agent(settings: "Settings") -> QueryAgent:

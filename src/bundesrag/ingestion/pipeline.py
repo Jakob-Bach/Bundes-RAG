@@ -7,6 +7,7 @@ from tqdm import tqdm
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
 from bundesrag.dip.models import DrucksacheMeta, PlenarprotokollMeta
+from bundesrag.i18n import t
 from bundesrag.ingestion.manifest import (
     PendingDocument,
     add_pending,
@@ -57,23 +58,23 @@ def run_download(
     confirm: Callable[[str], bool] = _default_confirm,
     confirm_filters: Callable[[DipQueryFilters], bool] = default_confirm_filters,
 ) -> DownloadSummary:
-    step(1, 3, "Anfrage interpretieren")
+    step(1, 3, t("step_interpret_request"))
     filters = query_agent.build_query(nl_prompt, ask_user=ask_user, confirm_filters=confirm_filters)
 
-    step(2, 3, "Dokumente suchen")
+    step(2, 3, t("step_search_documents"))
     metas = _list_documents(dip_client, filters)
     if len(metas) > settings.dip_max_results_before_confirm:
         proceed = confirm(
-            f"{len(metas)} Dokumente gefunden, mehr als der Grenzwert von "
-            f"{settings.dip_max_results_before_confirm}. "
-            "Trotzdem alle herunterladen? [j/N] "
+            t(
+                "confirm_large_download",
+                count=len(metas),
+                limit=settings.dip_max_results_before_confirm,
+            )
         )
         if not proceed:
-            raise DownloadAborted(
-                f"Abgebrochen: {len(metas)} Dokumente überschreiten den Grenzwert."
-            )
+            raise DownloadAborted(t("download_aborted", count=len(metas)))
 
-    step(3, 3, "PDFs herunterladen")
+    step(3, 3, t("step_download_pdfs"))
     pending = []
     for meta in tqdm(metas, desc="Download"):
         pdf_url = meta.fundstelle.pdf_url

@@ -9,6 +9,9 @@ class Settings(BaseSettings):
     mistral_api_key: str
     dip_api_key: str
 
+    # Language of CLI output (help text, prompts, citations); see bundesrag.i18n.
+    language: str = "de"
+
     data_dir: Path = Path("data")
 
     chat_model: str = "mistral-large-latest"
