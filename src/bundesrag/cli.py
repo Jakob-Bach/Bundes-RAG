@@ -10,6 +10,7 @@ from bundesrag.ingestion.pipeline import (
     run_delete_all,
     run_download,
     run_index,
+    run_status,
 )
 from bundesrag.logging_config import LOGGER_NAME, setup_logging
 from bundesrag.query_agent.agent import create_query_agent, format_filters
@@ -102,6 +103,22 @@ def clear(
         typer.echo(t("unexpected_error"))
         raise typer.Exit(code=1) from None
     typer.echo(t("delete_done", num_files=summary.num_files))
+
+
+@app.command()
+def status() -> None:
+    """Shows how many documents are downloaded and indexed."""
+    settings = Settings()
+    set_language(settings.language)
+    setup_logging(settings)
+    logger.info("status command invoked")
+    summary = run_status(settings)
+    typer.echo(t("status_num_downloaded", count=summary.num_downloaded))
+    typer.echo(t("status_num_indexed", count=summary.num_indexed))
+    typer.echo(t("status_files_header"))
+    for file in summary.files:
+        status_label = t("status_file_indexed") if file.indexed else t("status_file_not_indexed")
+        typer.echo(f"  - {file.pdf_path} ({status_label})")
 
 
 @app.command()

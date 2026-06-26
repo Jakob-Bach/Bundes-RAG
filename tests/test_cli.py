@@ -5,7 +5,9 @@ from bundesrag.ingestion.pipeline import (
     DeleteSummary,
     DownloadAborted,
     DownloadSummary,
+    FileStatus,
     IndexSummary,
+    StatusSummary,
 )
 from bundesrag.rag.answer_agent import AnswerResult
 
@@ -80,6 +82,30 @@ def test_clear_command_aborts_when_user_declines_confirmation(settings, mocker):
 
     assert result.exit_code == 1
     run_delete_all.assert_not_called()
+
+
+def test_status_command_reports_counts_and_file_statuses(settings, mocker):
+    mocker.patch.object(cli, "Settings", return_value=settings)
+    mocker.patch.object(
+        cli,
+        "run_status",
+        return_value=StatusSummary(
+            num_downloaded=2,
+            num_indexed=1,
+            files=[
+                FileStatus(pdf_path=settings.pdf_dir / "drucksache" / "19_1.pdf", indexed=True),
+                FileStatus(pdf_path=settings.pdf_dir / "drucksache" / "19_2.pdf", indexed=False),
+            ],
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["status"])
+
+    assert result.exit_code == 0
+    assert "Heruntergeladen: 2" in result.stdout
+    assert "Indexiert: 1" in result.stdout
+    assert "19_1.pdf" in result.stdout
+    assert "19_2.pdf" in result.stdout
 
 
 def test_ask_command_prints_answer_and_sources(settings, mocker):

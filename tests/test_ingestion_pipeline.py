@@ -11,6 +11,7 @@ from bundesrag.ingestion.pipeline import (
     run_delete_all,
     run_download,
     run_index,
+    run_status,
 )
 from bundesrag.query_agent.schema import DipQueryFilters
 
@@ -273,3 +274,45 @@ def test_run_delete_all_without_downloads_is_a_noop_on_files(settings, vectorsto
 
     assert summary.num_files == 0
     vectorstore.delete_collection.assert_called_once()
+
+
+def test_run_status_reports_downloaded_and_indexed_counts(
+    settings, query_agent, dip_client, vectorstore
+):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda count: count,
+    )
+    for pdf_path in (
+        settings.pdf_dir / "drucksache" / "19_1.pdf",
+        settings.pdf_dir / "drucksache" / "19_2.pdf",
+    ):
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_bytes(b"%PDF-1.4")
+
+    vectorstore.add_documents.side_effect = [None, RuntimeError("boom")]
+    with pytest.raises(RuntimeError):
+        run_index(settings, vectorstore=vectorstore)
+
+    summary = run_status(settings)
+
+    assert summary.num_downloaded == 2
+    assert summary.num_indexed == 1
+    statuses = {file.pdf_path.name: file.indexed for file in summary.files}
+    assert statuses == {"19_1.pdf": True, "19_2.pdf": False}
+
+
+def test_run_status_without_downloads_is_empty(settings):
+    summary = run_status(settings)
+
+    assert summary.num_downloaded == 0
+    assert summary.num_indexed == 0
+    assert summary.files == []

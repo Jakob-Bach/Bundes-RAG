@@ -35,6 +35,12 @@ MESSAGES = {
         "several clarification rounds."
     ),
     "sources_header": "\nSources:",
+    "status_file_indexed": "indexed",
+    "status_file_not_indexed": "not indexed",
+    "status_files_header": "Files:",
+    "status_help": "Shows how many documents are downloaded and indexed.",
+    "status_num_downloaded": "Downloaded: {count}",
+    "status_num_indexed": "Indexed: {count}",
     "step_download_pdfs": "Downloading PDFs",
     "step_generate_answer": "Generating answer",
     "step_interpret_request": "Interpreting request",

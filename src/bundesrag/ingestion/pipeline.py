@@ -1,5 +1,6 @@
 from collections.abc import Callable
 from dataclasses import dataclass
+from pathlib import Path
 
 from langchain_chroma import Chroma
 from tqdm import tqdm
@@ -38,6 +39,19 @@ class IndexSummary:
 @dataclass
 class DeleteSummary:
     num_files: int
+
+
+@dataclass
+class FileStatus:
+    pdf_path: Path
+    indexed: bool
+
+
+@dataclass
+class StatusSummary:
+    num_downloaded: int
+    num_indexed: int
+    files: list[FileStatus]
 
 
 class DownloadAborted(RuntimeError):
@@ -129,6 +143,14 @@ def run_delete_all(settings: Settings, *, vectorstore: Chroma) -> DeleteSummary:
     vectorstore.delete_collection()
     save_pending(settings, [])
     return DeleteSummary(num_files=num_files)
+
+
+def run_status(settings: Settings) -> StatusSummary:
+    pending_paths = {entry.pdf_path for entry in load_pending(settings)}
+    pdf_paths = sorted(settings.pdf_dir.rglob("*.pdf")) if settings.pdf_dir.exists() else []
+    files = [FileStatus(pdf_path=path, indexed=path not in pending_paths) for path in pdf_paths]
+    num_indexed = sum(1 for file in files if file.indexed)
+    return StatusSummary(num_downloaded=len(files), num_indexed=num_indexed, files=files)
 
 
 def _list_documents(dip_client: DipClient, filters: DipQueryFilters) -> list[DocumentMeta]:

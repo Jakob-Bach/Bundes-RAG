@@ -36,6 +36,12 @@ MESSAGES = {
         "Konnte aus der Anfrage auch nach mehreren Rückfragen keine gültige DIP-Abfrage erstellen."
     ),
     "sources_header": "\nQuellen:",
+    "status_file_indexed": "indexiert",
+    "status_file_not_indexed": "nicht indexiert",
+    "status_files_header": "Dateien:",
+    "status_help": "Zeigt an, wie viele Dokumente heruntergeladen und indexiert sind.",
+    "status_num_downloaded": "Heruntergeladen: {count}",
+    "status_num_indexed": "Indexiert: {count}",
     "step_download_pdfs": "PDFs herunterladen",
     "step_generate_answer": "Antwort erzeugen",
     "step_interpret_request": "Anfrage interpretieren",
