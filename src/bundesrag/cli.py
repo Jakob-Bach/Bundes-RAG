@@ -65,6 +65,7 @@ def download(prompt: str) -> None:
         raise typer.Exit(code=1) from None
     finally:
         dip_client.close()
+    logger.info("download succeeded: %d documents", summary.num_documents)
     typer.echo(t("download_done", num_documents=summary.num_documents))
 
 
@@ -81,6 +82,9 @@ def index() -> None:
         logger.exception("index failed")
         typer.echo(t("unexpected_error"))
         raise typer.Exit(code=1) from None
+    logger.info(
+        "index succeeded: %d documents, %d chunks", summary.num_documents, summary.num_chunks
+    )
     typer.echo(t("index_done", num_documents=summary.num_documents, num_chunks=summary.num_chunks))
 
 
@@ -102,6 +106,7 @@ def clear(
         logger.exception("clear failed")
         typer.echo(t("unexpected_error"))
         raise typer.Exit(code=1) from None
+    logger.info("clear succeeded: %d files deleted", summary.num_files)
     typer.echo(t("delete_done", num_files=summary.num_files))
 
 
@@ -113,6 +118,11 @@ def status() -> None:
     setup_logging(settings)
     logger.info("status command invoked")
     summary = run_status(settings)
+    logger.info(
+        "status succeeded: %d downloaded, %d indexed",
+        summary.num_downloaded,
+        summary.num_indexed,
+    )
     typer.echo(t("status_num_downloaded", count=summary.num_downloaded))
     typer.echo(t("status_num_indexed", count=summary.num_indexed))
     typer.echo(t("status_files_header"))
@@ -139,6 +149,7 @@ def ask(question: str) -> None:
         logger.exception("ask failed")
         typer.echo(t("unexpected_error"))
         raise typer.Exit(code=1) from None
+    logger.info("ask succeeded: %d sources", len(result.sources))
     typer.echo(result.answer_text)
     typer.echo(t("sources_header"))
     for source in result.sources:
