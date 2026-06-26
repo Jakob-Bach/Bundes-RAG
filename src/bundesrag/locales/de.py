@@ -4,18 +4,18 @@ MESSAGES = {
     "ask_query_feedback": "Was soll an der Abfrage angepasst werden?",
     "clear_help": "Löscht alle heruntergeladenen Dokumente und setzt die Vektordatenbank zurück.",
     "clear_yes_option_help": "Ohne Rückfrage löschen.",
+    "ask_download_count": (
+        "{count} Dokumente gefunden. Wie viele sollen heruntergeladen werden "
+        "(die neuesten zuerst, Enter für alle, 0 zum Abbrechen)? "
+    ),
     "confirm_delete_all": (
         "Wirklich alle heruntergeladenen Dokumente und die Vektordatenbank löschen?"
-    ),
-    "confirm_large_download": (
-        "{count} Dokumente gefunden, mehr als der Grenzwert von {limit}. "
-        "Trotzdem alle herunterladen? [j/N] "
     ),
     "confirm_use_query": "Abfrage so verwenden?",
     "confirm_use_query_yn": "Abfrage so verwenden? [j/N] ",
     "delete_done": "Fertig: {num_files} Dateien gelöscht und Vektordatenbank zurückgesetzt.",
     "document_reference": "Drucksache/Protokoll {dokumentnummer}",
-    "download_aborted": "Abgebrochen: {count} Dokumente überschreiten den Grenzwert.",
+    "download_aborted": "Abgebrochen: Download von {count} Dokumenten abgebrochen.",
     "download_done": "Fertig: {num_documents} Dokumente heruntergeladen.",
     "download_help": "Lädt Dokumente passend zu PROMPT herunter, ohne sie zu indexieren.",
     "filter_dokumentnummer": "  Dokumentnummer: {value}",

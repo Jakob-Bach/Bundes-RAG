@@ -66,6 +66,7 @@ def test_run_download_happy_path(settings, query_agent, dip_client):
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
+        confirm_count=lambda count: count,
     )
 
     assert summary.num_documents == 1
@@ -88,6 +89,7 @@ def test_run_download_passes_filters_to_drucksache_listing(settings, query_agent
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
+        confirm_count=lambda count: count,
     )
 
     _, kwargs = dip_client.list_drucksachen.call_args
@@ -120,19 +122,19 @@ def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_cl
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
+        confirm_count=lambda count: count,
     )
 
     dip_client.list_drucksachen.assert_not_called()
     assert summary.num_documents == 1
 
 
-def test_run_download_asks_for_confirmation_above_cap(settings, query_agent, dip_client):
-    settings.dip_max_results_before_confirm = 0
+def test_run_download_asks_for_confirmation_every_time(settings, query_agent, dip_client):
     confirm_calls = []
 
-    def confirm(message: str) -> bool:
-        confirm_calls.append(message)
-        return True
+    def confirm_count(count: int) -> int:
+        confirm_calls.append(count)
+        return count
 
     run_download(
         "Drucksachen der 21. Wahlperiode.",
@@ -140,15 +142,13 @@ def test_run_download_asks_for_confirmation_above_cap(settings, query_agent, dip
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm=confirm,
+        confirm_count=confirm_count,
     )
 
-    assert len(confirm_calls) == 1
+    assert confirm_calls == [1]
 
 
-def test_run_download_aborts_when_user_declines_confirmation(settings, query_agent, dip_client):
-    settings.dip_max_results_before_confirm = 0
-
+def test_run_download_aborts_when_user_enters_zero(settings, query_agent, dip_client):
     with pytest.raises(DownloadAborted):
         run_download(
             "Drucksachen der 21. Wahlperiode.",
@@ -156,11 +156,41 @@ def test_run_download_aborts_when_user_declines_confirmation(settings, query_age
             query_agent=query_agent,
             dip_client=dip_client,
             ask_user=lambda q: "",
-            confirm=lambda message: False,
+            confirm_count=lambda count: 0,
         )
 
     dip_client.download_pdf.assert_not_called()
     assert load_pending(settings) == []
+
+
+def test_run_download_limits_to_most_recent_documents(settings, query_agent, dip_client):
+    dip_client.list_drucksachen.return_value = [
+        DrucksacheMeta(
+            id=id_,
+            dokumentnummer=f"19/{id_}",
+            datum=date(2026, 1, day),
+            wahlperiode=21,
+            drucksachetyp="Antrag",
+            titel="Ein Titel",
+            fundstelle=Fundstelle(
+                id=id_, dokumentart="Drucksache", pdf_url=f"https://example.org/{id_}.pdf"
+            ),
+        )
+        for id_, day in (("1", 1), ("2", 10), ("3", 5))
+    ]
+
+    summary = run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda count: 1,
+    )
+
+    assert summary.num_documents == 1
+    pending = load_pending(settings)
+    assert pending[0].meta["id"] == "2"
 
 
 def test_run_index_happy_path(settings, query_agent, dip_client, vectorstore):
@@ -170,6 +200,7 @@ def test_run_index_happy_path(settings, query_agent, dip_client, vectorstore):
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
+        confirm_count=lambda count: count,
     )
 
     summary = run_index(settings, vectorstore=vectorstore)
@@ -193,6 +224,7 @@ def test_run_index_leaves_remaining_documents_pending_on_failure(
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
+        confirm_count=lambda count: count,
     )
 
     vectorstore.add_documents.side_effect = [None, RuntimeError("boom")]
@@ -222,6 +254,7 @@ def test_run_delete_all_removes_pdfs_resets_vectorstore_and_manifest(
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
+        confirm_count=lambda count: count,
     )
     pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
     pdf_path.parent.mkdir(parents=True, exist_ok=True)

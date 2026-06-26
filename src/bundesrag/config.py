@@ -17,11 +17,6 @@ class Settings(BaseSettings):
     chat_model: str = "mistral-large-latest"
     embedding_model: str = "mistral-embed"
 
-    # Safety cap on documents fetched per run before the user is asked to
-    # confirm a large download (the DIP API itself pages in fixed batches
-    # of 100 and offers no page-size parameter).
-    dip_max_results_before_confirm: int = 200
-
     retrieval_top_k: int = 5
     chunk_size: int = 1000
     chunk_overlap: int = 150

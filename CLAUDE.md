@@ -48,9 +48,10 @@ all driven from `src/bundesrag/cli.py` (Typer app with `download`, `index`,
    advancing. Note `urheber`/`ressort_fdf` are repeated-value filters with AND
    semantics across distinct values in the DIP API — querying for either of
    two ministries/fractions needs two separate `download` calls.
-3. If the result count exceeds `settings.dip_max_results_before_confirm`, the
-   user is asked to confirm (via an injected `confirm` callable) before
-   downloading.
+3. If any documents were found, the user is always asked (via an injected
+   `confirm_count` callable) how many of them to download; entering nothing
+   downloads all, entering `0` aborts (`DownloadAborted`), and entering a
+   smaller number keeps only that many, most recent (`datum`) first.
 4. PDFs are downloaded into `data/pdfs/<endpoint>/`, and each one is recorded
    as a `PendingDocument` in the `data/pending_index.json` manifest
    (`ingestion/manifest.py`) for the `index` command to pick up later.

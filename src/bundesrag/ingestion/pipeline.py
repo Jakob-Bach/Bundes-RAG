@@ -44,8 +44,15 @@ class DownloadAborted(RuntimeError):
     pass
 
 
-def _default_confirm(message: str) -> bool:
-    return input(message).strip().lower() in ("j", "ja", "y", "yes")
+def _default_confirm_count(count: int) -> int:
+    raw = input(t("ask_download_count", count=count)).strip()
+    if not raw:
+        return count
+    try:
+        chosen = int(raw)
+    except ValueError:
+        return count
+    return max(0, min(chosen, count))
 
 
 def run_download(
@@ -55,7 +62,7 @@ def run_download(
     query_agent: QueryAgent,
     dip_client: DipClient,
     ask_user: Callable[[str], str] = input,
-    confirm: Callable[[str], bool] = _default_confirm,
+    confirm_count: Callable[[int], int] = _default_confirm_count,
     confirm_filters: Callable[[DipQueryFilters], bool] = default_confirm_filters,
 ) -> DownloadSummary:
     step(1, 3, t("step_interpret_request"))
@@ -63,16 +70,12 @@ def run_download(
 
     step(2, 3, t("step_search_documents"))
     metas = _list_documents(dip_client, filters)
-    if len(metas) > settings.dip_max_results_before_confirm:
-        proceed = confirm(
-            t(
-                "confirm_large_download",
-                count=len(metas),
-                limit=settings.dip_max_results_before_confirm,
-            )
-        )
-        if not proceed:
+    if metas:
+        chosen_count = confirm_count(len(metas))
+        if chosen_count <= 0:
             raise DownloadAborted(t("download_aborted", count=len(metas)))
+        if chosen_count < len(metas):
+            metas = sorted(metas, key=lambda meta: meta.datum, reverse=True)[:chosen_count]
 
     step(3, 3, t("step_download_pdfs"))
     pending = []

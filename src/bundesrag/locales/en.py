@@ -3,16 +3,17 @@ MESSAGES = {
     "ask_help": "Answers QUESTION based on the stored documents.",
     "ask_query_feedback": "What should be adjusted about the query?",
     "clear_help": "Deletes all downloaded documents and resets the vector store.",
+    "ask_download_count": (
+        "{count} documents found. How many should be downloaded "
+        "(most recent first, Enter for all, 0 to cancel)? "
+    ),
     "clear_yes_option_help": "Delete without asking for confirmation.",
     "confirm_delete_all": "Really delete all downloaded documents and reset the vector store?",
-    "confirm_large_download": (
-        "{count} documents found, more than the limit of {limit}. Download all anyway? [y/N] "
-    ),
     "confirm_use_query": "Use this query?",
     "confirm_use_query_yn": "Use this query? [y/N] ",
     "delete_done": "Done: {num_files} files deleted and vector store reset.",
     "document_reference": "Document/protocol {dokumentnummer}",
-    "download_aborted": "Aborted: {count} documents exceed the limit.",
+    "download_aborted": "Aborted: download of {count} documents cancelled.",
     "download_done": "Done: {num_documents} documents downloaded.",
     "download_help": "Downloads documents matching PROMPT, without indexing them.",
     "filter_dokumentnummer": "  Document number: {value}",

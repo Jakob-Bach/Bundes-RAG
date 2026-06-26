@@ -27,6 +27,15 @@ def _confirm_filters(filters: DipQueryFilters) -> bool:
     return typer.confirm(t("confirm_use_query"))
 
 
+def _confirm_count(count: int) -> int:
+    raw = typer.prompt(t("ask_download_count", count=count), default=str(count))
+    try:
+        chosen = int(raw)
+    except ValueError:
+        return count
+    return max(0, min(chosen, count))
+
+
 @app.command()
 def download(prompt: str) -> None:
     """Downloads documents matching PROMPT, without indexing them."""
@@ -42,7 +51,7 @@ def download(prompt: str) -> None:
             query_agent=create_query_agent(settings),
             dip_client=dip_client,
             ask_user=typer.prompt,
-            confirm=typer.confirm,
+            confirm_count=_confirm_count,
             confirm_filters=_confirm_filters,
         )
     except DownloadAborted as exc:
