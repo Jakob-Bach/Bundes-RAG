@@ -1,25 +1,9 @@
 from datetime import date
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
-class Urheber(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    bezeichnung: str
-    titel: str
-    rolle: str | None = None
-
-
-class Fundstelle(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    id: str
-    dokumentart: str
-    pdf_url: str | None = None
-
-
-class DrucksacheMeta(BaseModel):
+class DocumentMeta(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     id: str
@@ -28,16 +12,16 @@ class DrucksacheMeta(BaseModel):
     wahlperiode: int
     drucksachetyp: str | None = None
     titel: str | None = None
-    urheber: list[Urheber] = Field(default_factory=list)
-    fundstelle: Fundstelle
+    pdf_url: str | None = None
 
-
-class PlenarprotokollMeta(BaseModel):
-    model_config = ConfigDict(extra="allow")
-
-    id: str
-    dokumentnummer: str
-    datum: date
-    wahlperiode: int
-    titel: str | None = None
-    fundstelle: Fundstelle
+    @model_validator(mode="before")
+    @classmethod
+    def _flatten_fundstelle(cls, data):
+        # The DIP API nests pdf_url under "fundstelle"; flatten it here so the
+        # model can be built directly from raw API JSON while everywhere else
+        # in the codebase just deals with a flat pdf_url field.
+        if isinstance(data, dict) and "pdf_url" not in data:
+            fundstelle = data.get("fundstelle")
+            if isinstance(fundstelle, dict):
+                data = {**data, "pdf_url": fundstelle.get("pdf_url")}
+        return data

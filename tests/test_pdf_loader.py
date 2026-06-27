@@ -1,21 +1,19 @@
 from datetime import date
 
-from bundesrag.dip.models import DrucksacheMeta, Fundstelle
+from bundesrag.dip.models import DocumentMeta
 from bundesrag.ingestion import pdf_loader
 from bundesrag.ingestion.pdf_loader import citation_label, load_pdf_as_chunks
 
 
-def _meta(titel: str | None) -> DrucksacheMeta:
-    return DrucksacheMeta(
+def _meta(titel: str | None) -> DocumentMeta:
+    return DocumentMeta(
         id="68852",
         dokumentnummer="19/1",
         datum=date(2017, 10, 24),
         wahlperiode=19,
         drucksachetyp="Antrag",
         titel=titel,
-        fundstelle=Fundstelle(
-            id="68852", dokumentart="Drucksache", pdf_url="https://example.org/19_1.pdf"
-        ),
+        pdf_url="https://example.org/19_1.pdf",
     )
 
 

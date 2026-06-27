@@ -3,7 +3,7 @@ from datetime import date
 import pytest
 from langchain_core.documents import Document
 
-from bundesrag.dip.models import DrucksacheMeta, Fundstelle, PlenarprotokollMeta
+from bundesrag.dip.models import DocumentMeta
 from bundesrag.ingestion import pipeline
 from bundesrag.ingestion.manifest import load_pending
 from bundesrag.ingestion.pipeline import (
@@ -16,17 +16,15 @@ from bundesrag.ingestion.pipeline import (
 from bundesrag.query_agent.schema import DipQueryFilters
 
 
-def _drucksache_meta(id_: str = "1") -> DrucksacheMeta:
-    return DrucksacheMeta(
+def _drucksache_meta(id_: str = "1") -> DocumentMeta:
+    return DocumentMeta(
         id=id_,
         dokumentnummer=f"19/{id_}",
         datum=date(2026, 1, 5),
         wahlperiode=21,
         drucksachetyp="Antrag",
         titel="Ein Titel",
-        fundstelle=Fundstelle(
-            id=id_, dokumentart="Drucksache", pdf_url=f"https://example.org/{id_}.pdf"
-        ),
+        pdf_url=f"https://example.org/{id_}.pdf",
     )
 
 
@@ -105,17 +103,13 @@ def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_cl
         endpoint="plenarprotokoll", wahlperiode=21
     )
     dip_client.list_plenarprotokolle.return_value = [
-        PlenarprotokollMeta(
+        DocumentMeta(
             id="1",
             dokumentnummer="21/1",
             datum=date(2026, 1, 5),
             wahlperiode=21,
             titel="Protokoll der 1. Sitzung",
-            fundstelle=Fundstelle(
-                id="1",
-                dokumentart="Plenarprotokoll",
-                pdf_url="https://example.org/21_1.pdf",
-            ),
+            pdf_url="https://example.org/21_1.pdf",
         )
     ]
 
@@ -171,16 +165,14 @@ def test_run_download_aborts_when_user_enters_zero(settings, query_agent, dip_cl
 
 def test_run_download_limits_to_most_recent_documents(settings, query_agent, dip_client):
     dip_client.list_drucksachen.return_value = [
-        DrucksacheMeta(
+        DocumentMeta(
             id=id_,
             dokumentnummer=f"19/{id_}",
             datum=date(2026, 1, day),
             wahlperiode=21,
             drucksachetyp="Antrag",
             titel="Ein Titel",
-            fundstelle=Fundstelle(
-                id=id_, dokumentart="Drucksache", pdf_url=f"https://example.org/{id_}.pdf"
-            ),
+            pdf_url=f"https://example.org/{id_}.pdf",
         )
         for id_, day in (("1", 1), ("2", 10), ("3", 5))
     ]

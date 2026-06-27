@@ -4,9 +4,7 @@ from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 
-from bundesrag.dip.models import DrucksacheMeta, PlenarprotokollMeta
-
-DocumentMeta = DrucksacheMeta | PlenarprotokollMeta
+from bundesrag.dip.models import DocumentMeta
 
 
 def citation_label(meta: DocumentMeta) -> str:
@@ -14,8 +12,9 @@ def citation_label(meta: DocumentMeta) -> str:
     # type/number/date label for the rare cases where it's missing.
     if meta.titel:
         return meta.titel
-    drucksachetyp = getattr(meta, "drucksachetyp", None)
-    label = f"{drucksachetyp} {meta.dokumentnummer}" if drucksachetyp else meta.dokumentnummer
+    label = (
+        f"{meta.drucksachetyp} {meta.dokumentnummer}" if meta.drucksachetyp else meta.dokumentnummer
+    )
     return f"{label} ({meta.datum.isoformat()})"
 
 
@@ -47,7 +46,7 @@ def load_pdf_as_chunks(
                         "datum": meta.datum.isoformat(),
                         "page": page_number,
                         "pdf_path": str(pdf_path),
-                        "source_url": meta.fundstelle.pdf_url,
+                        "source_url": meta.pdf_url,
                     },
                 )
             )

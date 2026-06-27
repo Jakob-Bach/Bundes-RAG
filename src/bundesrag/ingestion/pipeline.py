@@ -7,7 +7,7 @@ from tqdm import tqdm
 
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
-from bundesrag.dip.models import DrucksacheMeta, PlenarprotokollMeta
+from bundesrag.dip.models import DocumentMeta
 from bundesrag.i18n import t
 from bundesrag.ingestion.manifest import (
     PendingDocument,
@@ -21,8 +21,6 @@ from bundesrag.progress import step
 from bundesrag.query_agent.agent import QueryAgent
 from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.vectorstore import add_documents
-
-DocumentMeta = DrucksacheMeta | PlenarprotokollMeta
 
 
 @dataclass
@@ -83,7 +81,7 @@ def run_download(
     step(3, 3, t("step_download_pdfs"))
     pending = []
     for meta in tqdm(metas, desc="Download"):
-        pdf_url = meta.fundstelle.pdf_url
+        pdf_url = meta.pdf_url
         if not pdf_url:
             continue
         dest = settings.pdf_dir / filters.endpoint / f"{meta.dokumentnummer.replace('/', '_')}.pdf"

@@ -6,7 +6,7 @@ from typing import Literal
 import httpx
 from tqdm import tqdm
 
-from bundesrag.dip.models import DrucksacheMeta, PlenarprotokollMeta
+from bundesrag.dip.models import DocumentMeta
 
 DEFAULT_BASE_URL = "https://search.dip.bundestag.de/api/v1/"
 
@@ -35,7 +35,7 @@ class DipClient:
         ressort_fdf: list[str] | None = None,
         titel: list[str] | None = None,
         max_results: int | None = None,
-    ) -> Iterator[DrucksacheMeta]:
+    ) -> Iterator[DocumentMeta]:
         params = self._base_params(datum_start, datum_end, wahlperiode, dokumentnummer, zuordnung)
         if drucksachetyp:
             params["f.drucksachetyp"] = drucksachetyp
@@ -45,7 +45,7 @@ class DipClient:
             params["f.ressort_fdf"] = ressort_fdf
         if titel:
             params["f.titel"] = titel
-        yield from self._paginate("drucksache", params, DrucksacheMeta, max_results)
+        yield from self._paginate("drucksache", params, DocumentMeta, max_results)
 
     def list_plenarprotokolle(
         self,
@@ -56,9 +56,9 @@ class DipClient:
         dokumentnummer: str | None = None,
         zuordnung: Literal["BT", "BR", "BV", "EK"] | None = None,
         max_results: int | None = None,
-    ) -> Iterator[PlenarprotokollMeta]:
+    ) -> Iterator[DocumentMeta]:
         params = self._base_params(datum_start, datum_end, wahlperiode, dokumentnummer, zuordnung)
-        yield from self._paginate("plenarprotokoll", params, PlenarprotokollMeta, max_results)
+        yield from self._paginate("plenarprotokoll", params, DocumentMeta, max_results)
 
     @staticmethod
     def _base_params(

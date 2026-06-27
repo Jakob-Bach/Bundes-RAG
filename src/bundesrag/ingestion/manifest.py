@@ -5,9 +5,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from bundesrag.config import Settings
-from bundesrag.dip.models import DrucksacheMeta, PlenarprotokollMeta
-
-DocumentMeta = DrucksacheMeta | PlenarprotokollMeta
+from bundesrag.dip.models import DocumentMeta
 
 
 class PendingDocument(BaseModel):
@@ -19,9 +17,7 @@ class PendingDocument(BaseModel):
     meta: dict
 
     def resolve_meta(self) -> DocumentMeta:
-        if self.kind == "drucksache":
-            return DrucksacheMeta.model_validate(self.meta)
-        return PlenarprotokollMeta.model_validate(self.meta)
+        return DocumentMeta.model_validate(self.meta)
 
 
 def manifest_path(settings: Settings) -> Path:
