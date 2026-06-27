@@ -18,7 +18,7 @@ from bundesrag.ingestion.manifest import (
 )
 from bundesrag.ingestion.pdf_loader import load_pdf_as_chunks
 from bundesrag.progress import step
-from bundesrag.query_agent.agent import QueryAgent, default_confirm_filters
+from bundesrag.query_agent.agent import QueryAgent
 from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.vectorstore import add_documents
 
@@ -58,26 +58,15 @@ class DownloadAborted(RuntimeError):
     pass
 
 
-def _default_confirm_count(count: int) -> int:
-    raw = input(t("ask_download_count", count=count)).strip()
-    if not raw:
-        return count
-    try:
-        chosen = int(raw)
-    except ValueError:
-        return count
-    return max(0, min(chosen, count))
-
-
 def run_download(
     nl_prompt: str,
     settings: Settings,
     *,
     query_agent: QueryAgent,
     dip_client: DipClient,
-    ask_user: Callable[[str], str] = input,
-    confirm_count: Callable[[int], int] = _default_confirm_count,
-    confirm_filters: Callable[[DipQueryFilters], bool] = default_confirm_filters,
+    ask_user: Callable[[str], str],
+    confirm_count: Callable[[int], int],
+    confirm_filters: Callable[[DipQueryFilters], bool],
 ) -> DownloadSummary:
     step(1, 3, t("step_interpret_request"))
     filters = query_agent.build_query(nl_prompt, ask_user=ask_user, confirm_filters=confirm_filters)
@@ -163,9 +152,9 @@ def _list_documents(dip_client: DipClient, filters: DipQueryFilters) -> list[Doc
                 dokumentnummer=filters.dokumentnummer,
                 drucksachetyp=filters.drucksachetyp,
                 zuordnung=filters.zuordnung,
-                urheber=filters.urheber or None,
-                ressort_fdf=filters.ressort_fdf or None,
-                titel=filters.titel or None,
+                urheber=filters.urheber,
+                ressort_fdf=filters.ressort_fdf,
+                titel=filters.titel,
             )
         )
     return list(

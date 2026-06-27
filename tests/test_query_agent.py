@@ -92,7 +92,9 @@ def test_build_query_raises_after_too_many_clarification_rounds():
     agent = QueryAgent(llm, today=date(2026, 6, 18))
 
     with pytest.raises(QueryAgentError):
-        agent.build_query("irgendwas", ask_user=lambda q: "keine Ahnung")
+        agent.build_query(
+            "irgendwas", ask_user=lambda q: "keine Ahnung", confirm_filters=lambda f: True
+        )
 
 
 def test_build_query_returns_filters_once_confirmed():

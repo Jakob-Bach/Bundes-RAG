@@ -45,16 +45,6 @@ def format_filters(filters: DipQueryFilters) -> str:
     return "\n".join(lines)
 
 
-def default_confirm_filters(filters: DipQueryFilters) -> bool:
-    print(format_filters(filters))
-    return input(t("confirm_use_query_yn")).strip().lower() in (
-        "j",
-        "ja",
-        "y",
-        "yes",
-    )
-
-
 class QueryAgent:
     """Turns a German NL prompt into DipQueryFilters, asking the user for
     clarification (via ask_user) when the request is too ambiguous, and for
@@ -74,7 +64,7 @@ class QueryAgent:
         self,
         nl_prompt: str,
         ask_user: Callable[[str], str],
-        confirm_filters: Callable[[DipQueryFilters], bool] = default_confirm_filters,
+        confirm_filters: Callable[[DipQueryFilters], bool],
     ) -> DipQueryFilters:
         messages = [
             {"role": "system", "content": build_system_prompt(self._today, self._language)},

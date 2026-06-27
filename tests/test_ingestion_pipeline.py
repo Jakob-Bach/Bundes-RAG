@@ -68,6 +68,7 @@ def test_run_download_happy_path(settings, query_agent, dip_client):
         dip_client=dip_client,
         ask_user=lambda q: "",
         confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
     )
 
     assert summary.num_documents == 1
@@ -91,6 +92,7 @@ def test_run_download_passes_filters_to_drucksache_listing(settings, query_agent
         dip_client=dip_client,
         ask_user=lambda q: "",
         confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
     )
 
     _, kwargs = dip_client.list_drucksachen.call_args
@@ -124,6 +126,7 @@ def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_cl
         dip_client=dip_client,
         ask_user=lambda q: "",
         confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
     )
 
     dip_client.list_drucksachen.assert_not_called()
@@ -144,6 +147,7 @@ def test_run_download_asks_for_confirmation_every_time(settings, query_agent, di
         dip_client=dip_client,
         ask_user=lambda q: "",
         confirm_count=confirm_count,
+        confirm_filters=lambda f: True,
     )
 
     assert confirm_calls == [1]
@@ -158,6 +162,7 @@ def test_run_download_aborts_when_user_enters_zero(settings, query_agent, dip_cl
             dip_client=dip_client,
             ask_user=lambda q: "",
             confirm_count=lambda count: 0,
+            confirm_filters=lambda f: True,
         )
 
     dip_client.download_pdf.assert_not_called()
@@ -187,6 +192,7 @@ def test_run_download_limits_to_most_recent_documents(settings, query_agent, dip
         dip_client=dip_client,
         ask_user=lambda q: "",
         confirm_count=lambda count: 1,
+        confirm_filters=lambda f: True,
     )
 
     assert summary.num_documents == 1
@@ -202,6 +208,7 @@ def test_run_index_happy_path(settings, query_agent, dip_client, vectorstore):
         dip_client=dip_client,
         ask_user=lambda q: "",
         confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
     )
 
     summary = run_index(settings, vectorstore=vectorstore)
@@ -226,6 +233,7 @@ def test_run_index_leaves_remaining_documents_pending_on_failure(
         dip_client=dip_client,
         ask_user=lambda q: "",
         confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
     )
 
     vectorstore.add_documents.side_effect = [None, RuntimeError("boom")]
@@ -256,6 +264,7 @@ def test_run_delete_all_removes_pdfs_resets_vectorstore_and_manifest(
         dip_client=dip_client,
         ask_user=lambda q: "",
         confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
     )
     pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
@@ -290,6 +299,7 @@ def test_run_status_reports_downloaded_and_indexed_counts(
         dip_client=dip_client,
         ask_user=lambda q: "",
         confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
     )
     for pdf_path in (
         settings.pdf_dir / "drucksache" / "19_1.pdf",

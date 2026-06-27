@@ -23,6 +23,13 @@ app = typer.Typer(help="Download Bundestag documents and ask questions about the
 logger = logging.getLogger(LOGGER_NAME)
 
 
+def _init() -> Settings:
+    settings = Settings()
+    set_language(settings.language)
+    setup_logging(settings)
+    return settings
+
+
 def _confirm_filters(filters: DipQueryFilters) -> bool:
     typer.echo(format_filters(filters))
     return typer.confirm(t("confirm_use_query"))
@@ -40,9 +47,7 @@ def _confirm_count(count: int) -> int:
 @app.command()
 def download(prompt: str) -> None:
     """Downloads documents matching PROMPT, without indexing them."""
-    settings = Settings()
-    set_language(settings.language)
-    setup_logging(settings)
+    settings = _init()
     logger.info("download query: %s", prompt)
     dip_client = DipClient(api_key=settings.dip_api_key)
     try:
@@ -72,9 +77,7 @@ def download(prompt: str) -> None:
 @app.command()
 def index() -> None:
     """Indexes previously downloaded but not yet indexed documents."""
-    settings = Settings()
-    set_language(settings.language)
-    setup_logging(settings)
+    settings = _init()
     logger.info("index command invoked")
     try:
         summary = run_index(settings, vectorstore=get_vectorstore(settings))
@@ -93,9 +96,7 @@ def clear(
     yes: bool = typer.Option(False, "--yes", "-y", help="Delete without asking for confirmation."),
 ) -> None:
     """Deletes all downloaded documents and resets the vector store."""
-    settings = Settings()
-    set_language(settings.language)
-    setup_logging(settings)
+    settings = _init()
     logger.info("clear command invoked")
     if not yes and not typer.confirm(t("confirm_delete_all")):
         logger.warning("clear aborted: user declined confirmation")
@@ -113,9 +114,7 @@ def clear(
 @app.command()
 def status() -> None:
     """Shows how many documents are downloaded and indexed."""
-    settings = Settings()
-    set_language(settings.language)
-    setup_logging(settings)
+    settings = _init()
     logger.info("status command invoked")
     summary = run_status(settings)
     logger.info(
@@ -134,9 +133,7 @@ def status() -> None:
 @app.command()
 def ask(question: str) -> None:
     """Answers QUESTION based on the stored documents."""
-    settings = Settings()
-    set_language(settings.language)
-    setup_logging(settings)
+    settings = _init()
     logger.info("ask query: %s", question)
     try:
         result = answer_question(
