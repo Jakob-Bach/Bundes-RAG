@@ -60,9 +60,15 @@ class QueryAgent:
     clarification (via ask_user) when the request is too ambiguous, and for
     confirmation (via confirm_filters) once filters have been proposed."""
 
-    def __init__(self, structured_llm: StructuredLlm, today: date | None = None) -> None:
+    def __init__(
+        self,
+        structured_llm: StructuredLlm,
+        today: date | None = None,
+        language: str = "de",
+    ) -> None:
         self._llm = structured_llm
         self._today = today or date.today()
+        self._language = language
 
     def build_query(
         self,
@@ -71,7 +77,7 @@ class QueryAgent:
         confirm_filters: Callable[[DipQueryFilters], bool] = default_confirm_filters,
     ) -> DipQueryFilters:
         messages = [
-            {"role": "system", "content": build_system_prompt(self._today)},
+            {"role": "system", "content": build_system_prompt(self._today, self._language)},
             {"role": "user", "content": nl_prompt},
         ]
         for _ in range(MAX_CLARIFICATION_ROUNDS):
@@ -94,4 +100,4 @@ def create_query_agent(settings: "Settings") -> QueryAgent:
     from langchain_mistralai import ChatMistralAI
 
     llm = ChatMistralAI(model=settings.chat_model, api_key=settings.mistral_api_key)
-    return QueryAgent(llm.with_structured_output(QueryAgentResult))
+    return QueryAgent(llm.with_structured_output(QueryAgentResult), language=settings.language)

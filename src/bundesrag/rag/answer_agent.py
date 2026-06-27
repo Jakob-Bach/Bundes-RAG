@@ -7,16 +7,21 @@ from langchain_core.documents import Document
 
 from bundesrag.config import Settings
 from bundesrag.i18n import t
+from bundesrag.locales import LANGUAGE_NAMES
 from bundesrag.progress import step
 from bundesrag.rag.retriever import retrieve
 
-SYSTEM_PROMPT = """\
+SYSTEM_PROMPT_TEMPLATE = """\
 Du beantwortest Fragen zu deutschen Bundestagsdokumenten ausschließlich auf \
 Basis der bereitgestellten Textauszüge. Zitiere relevante Aussagen mit der \
 Nummer des jeweiligen Auszugs in eckigen Klammern, z. B. [2]. Wenn die \
 Auszüge die Frage nicht beantworten können, sage das ausdrücklich, anstatt \
-zu raten. Antworte auf Deutsch.
+zu raten. Antworte in {language}.
 """
+
+
+def build_system_prompt(language: str = "de") -> str:
+    return SYSTEM_PROMPT_TEMPLATE.format(language=LANGUAGE_NAMES[language])
 
 
 class ChatLlm(Protocol):
@@ -60,7 +65,7 @@ def answer_question(
     step(2, 2, t("step_generate_answer"))
     context = format_context(docs)
     messages = [
-        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "system", "content": build_system_prompt(settings.language)},
         {"role": "user", "content": f"Kontext:\n{context}\n\nFrage: {question}"},
     ]
     response = llm.invoke(messages)

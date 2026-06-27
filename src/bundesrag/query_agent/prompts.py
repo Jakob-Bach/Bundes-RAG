@@ -1,7 +1,9 @@
 from datetime import date
 
+from bundesrag.locales import LANGUAGE_NAMES
+
 SYSTEM_PROMPT_TEMPLATE = """\
-Du übersetzt eine deutsche Nutzeranfrage in eine Abfrage gegen die DIP-API \
+Du übersetzt eine Nutzeranfrage in eine Abfrage gegen die DIP-API \
 (Dokumentations- und Informationssystem für Parlamentsmaterialien) des \
 Deutschen Bundestages. Das heutige Datum ist {today}.
 
@@ -32,11 +34,11 @@ endpoint == "drucksache" ist.
 - Wenn die Anfrage zu vage oder mehrdeutig ist, um sie sicher in diese Filter \
 zu übersetzen (z. B. fehlendes Datum oder fehlende Wahlperiode bei einer sehr \
 breiten Anfrage, oder ein unklarer Dokumenttyp), antworte NICHT mit einer \
-Vermutung, sondern stelle stattdessen eine kurze, konkrete Rückfrage auf \
-Deutsch.
+Vermutung, sondern stelle stattdessen eine kurze, konkrete Rückfrage in \
+{language}.
 - Andernfalls antworte mit den passenden Filtern, möglichst eng an der Nutzeranfrage.
 """
 
 
-def build_system_prompt(today: date) -> str:
-    return SYSTEM_PROMPT_TEMPLATE.format(today=today.isoformat())
+def build_system_prompt(today: date, language: str = "de") -> str:
+    return SYSTEM_PROMPT_TEMPLATE.format(today=today.isoformat(), language=LANGUAGE_NAMES[language])
