@@ -18,6 +18,10 @@ MESSAGES = {
     "download_aborted": "Abgebrochen: Download von {count} Dokumenten abgebrochen.",
     "download_done": "Fertig: {num_documents} Dokumente heruntergeladen.",
     "download_help": "Lädt Dokumente passend zu PROMPT herunter, ohne sie zu indexieren.",
+    "download_partial_failure": (
+        "Achtung: {num_failed} Dokument(e) konnten nicht heruntergeladen werden "
+        "und wurden übersprungen."
+    ),
     "filter_dokumentnummer": "  Dokumentnummer: {value}",
     "filter_drucksachetyp": "  Drucksachetyp: {value}",
     "filter_ressort": "  Ressort: {value}",

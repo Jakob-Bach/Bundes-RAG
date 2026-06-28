@@ -1,7 +1,9 @@
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 
+import httpx
 from langchain_chroma import Chroma
 from tqdm import tqdm
 
@@ -22,10 +24,13 @@ from bundesrag.query_agent.agent import QueryAgent
 from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.vectorstore import add_documents
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class DownloadSummary:
     num_documents: int
+    num_failed: int = 0
 
 
 @dataclass
@@ -80,12 +85,20 @@ def run_download(
 
     step(3, 3, t("step_download_pdfs"))
     pending = []
+    num_failed = 0
     for meta in tqdm(metas, desc="Download"):
         pdf_url = meta.pdf_url
         if not pdf_url:
+            logger.warning("no pdf_url for %s, skipping", meta.dokumentnummer)
+            num_failed += 1
             continue
         dest = settings.pdf_dir / filters.endpoint / f"{meta.dokumentnummer.replace('/', '_')}.pdf"
-        pdf_path = dip_client.download_pdf(pdf_url, dest)
+        try:
+            pdf_path = dip_client.download_pdf(pdf_url, dest)
+        except httpx.HTTPError:
+            logger.warning("download failed for %s, skipping", meta.dokumentnummer, exc_info=True)
+            num_failed += 1
+            continue
         pending.append(
             PendingDocument(
                 kind=filters.endpoint,
@@ -95,7 +108,7 @@ def run_download(
         )
 
     add_pending(settings, pending)
-    return DownloadSummary(num_documents=len(pending))
+    return DownloadSummary(num_documents=len(pending), num_failed=num_failed)
 
 
 def run_index(settings: Settings, *, vectorstore: Chroma) -> IndexSummary:

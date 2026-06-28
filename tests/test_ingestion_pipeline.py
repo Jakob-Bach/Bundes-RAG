@@ -1,5 +1,6 @@
 from datetime import date
 
+import httpx
 import pytest
 from langchain_core.documents import Document
 
@@ -96,6 +97,58 @@ def test_run_download_passes_filters_to_drucksache_listing(settings, query_agent
     _, kwargs = dip_client.list_drucksachen.call_args
     assert kwargs["datum_start"] == date(2026, 1, 1)
     assert kwargs["ressort_fdf"] == ["Bundesministerium für Forschung, Technologie und Raumfahrt"]
+
+
+def test_run_download_skips_documents_that_fail_to_download(settings, query_agent, dip_client):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+
+    def download_pdf(url, dest):
+        if "1" in url:
+            request = httpx.Request("GET", url)
+            raise httpx.HTTPStatusError("not found", request=request, response=None)
+        return dest
+
+    dip_client.download_pdf.side_effect = download_pdf
+
+    summary = run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
+    )
+
+    assert summary.num_documents == 1
+    assert summary.num_failed == 1
+    pending = load_pending(settings)
+    assert len(pending) == 1
+    assert pending[0].meta["id"] == "2"
+
+
+def test_run_download_counts_documents_without_pdf_url_as_failed(settings, query_agent, dip_client):
+    meta_without_pdf = _drucksache_meta("1").model_copy(update={"pdf_url": None})
+    dip_client.list_drucksachen.return_value = [meta_without_pdf, _drucksache_meta("2")]
+
+    summary = run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
+    )
+
+    assert summary.num_documents == 1
+    assert summary.num_failed == 1
+    pending = load_pending(settings)
+    assert len(pending) == 1
+    assert pending[0].meta["id"] == "2"
 
 
 def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_client):

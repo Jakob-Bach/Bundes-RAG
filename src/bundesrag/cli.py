@@ -70,8 +70,12 @@ def download(prompt: str) -> None:
         raise typer.Exit(code=1) from None
     finally:
         dip_client.close()
-    logger.info("download succeeded: %d documents", summary.num_documents)
+    logger.info(
+        "download succeeded: %d documents, %d failed", summary.num_documents, summary.num_failed
+    )
     typer.echo(t("download_done", num_documents=summary.num_documents))
+    if summary.num_failed:
+        typer.echo(t("download_partial_failure", num_failed=summary.num_failed))
 
 
 @app.command()

@@ -16,6 +16,9 @@ MESSAGES = {
     "download_aborted": "Aborted: download of {count} documents cancelled.",
     "download_done": "Done: {num_documents} documents downloaded.",
     "download_help": "Downloads documents matching PROMPT, without indexing them.",
+    "download_partial_failure": (
+        "Warning: {num_failed} document(s) could not be downloaded and were skipped."
+    ),
     "filter_dokumentnummer": "  Document number: {value}",
     "filter_drucksachetyp": "  Document type: {value}",
     "filter_ressort": "  Department: {value}",
