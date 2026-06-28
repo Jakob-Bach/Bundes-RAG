@@ -44,7 +44,7 @@ def format_context(docs: Sequence[Document]) -> str:
     return "\n\n".join(parts)
 
 
-def citation_for(doc: Document) -> str:
+def citation_for(doc: Document, score: float | None = None) -> str:
     label = doc.metadata.get("citation_label", t("unknown_document"))
     page = doc.metadata.get("page")
     dokumentnummer = doc.metadata.get("dokumentnummer")
@@ -53,14 +53,18 @@ def citation_for(doc: Document) -> str:
         parts.append(t("page_short", page=page))
     if dokumentnummer:
         parts.append(t("document_reference", dokumentnummer=dokumentnummer))
-    return ", ".join(parts)
+    citation = ", ".join(parts)
+    if score is not None:
+        citation += t("similarity_suffix", score=f"{score:.2f}")
+    return citation
 
 
 def answer_question(
     question: str, settings: Settings, *, llm: ChatLlm, vectorstore: Chroma
 ) -> AnswerResult:
     step(1, 2, t("step_search_passages"))
-    docs = retrieve(question, vectorstore, settings.retrieval_top_k)
+    results = retrieve(question, vectorstore, settings.retrieval_top_k)
+    docs = [doc for doc, _ in results]
 
     step(2, 2, t("step_generate_answer"))
     context = format_context(docs)
@@ -73,11 +77,11 @@ def answer_question(
 
     seen: set[str] = set()
     sources = []
-    for doc in docs:
-        citation = citation_for(doc)
-        if citation not in seen:
-            seen.add(citation)
-            sources.append(citation)
+    for doc, score in results:
+        key = citation_for(doc)
+        if key not in seen:
+            seen.add(key)
+            sources.append(citation_for(doc, score))
 
     return AnswerResult(answer_text=answer_text, sources=sources)
 

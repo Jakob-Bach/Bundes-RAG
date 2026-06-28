@@ -37,6 +37,7 @@ MESSAGES = {
         "Could not build a valid DIP query from the request even after "
         "several clarification rounds."
     ),
+    "similarity_suffix": " (similarity: {score})",
     "sources_header": "\nSources:",
     "status_file_indexed": "indexed",
     "status_file_not_indexed": "not indexed",

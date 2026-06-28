@@ -32,13 +32,23 @@ def test_citation_for_includes_label_page_and_dokumentnummer():
     assert citation_for(doc) == "Antrag 19/1, S. 4, Drucksache/Protokoll 19/1"
 
 
+def test_citation_for_appends_similarity_score():
+    doc = _doc("Text", "Antrag 19/1", 4, "19/1")
+    assert citation_for(doc, 0.8234) == (
+        "Antrag 19/1, S. 4, Drucksache/Protokoll 19/1 (Ähnlichkeit: 0.82)"
+    )
+
+
 def test_answer_question_builds_prompt_and_dedupes_sources(settings, mocker):
     docs = [
         _doc("Erster.", "Antrag 19/1", 1, "19/1"),
         _doc("Zweiter.", "Antrag 19/1", 1, "19/1"),
     ]
     vectorstore = mocker.Mock()
-    vectorstore.similarity_search.return_value = docs
+    vectorstore.similarity_search_with_score.return_value = [
+        (docs[0], 0.1),
+        (docs[1], 0.3),
+    ]
 
     llm = mocker.Mock()
     llm.invoke.return_value = mocker.Mock(content="Die Antwort lautet ... [1]")
@@ -46,7 +56,7 @@ def test_answer_question_builds_prompt_and_dedupes_sources(settings, mocker):
     result = answer_question("Worum geht es?", settings, llm=llm, vectorstore=vectorstore)
 
     assert result.answer_text == "Die Antwort lautet ... [1]"
-    assert result.sources == ["Antrag 19/1, S. 1, Drucksache/Protokoll 19/1"]
+    assert result.sources == ["Antrag 19/1, S. 1, Drucksache/Protokoll 19/1 (Ähnlichkeit: 0.90)"]
     messages = llm.invoke.call_args[0][0]
     assert messages[0]["role"] == "system"
     assert "Worum geht es?" in messages[1]["content"]

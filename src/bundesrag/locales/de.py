@@ -39,6 +39,7 @@ MESSAGES = {
     "query_agent_failed": (
         "Konnte aus der Anfrage auch nach mehreren Rückfragen keine gültige DIP-Abfrage erstellen."
     ),
+    "similarity_suffix": " (Ähnlichkeit: {score})",
     "sources_header": "\nQuellen:",
     "status_file_indexed": "indexiert",
     "status_file_not_indexed": "nicht indexiert",
