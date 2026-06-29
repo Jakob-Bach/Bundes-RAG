@@ -55,7 +55,7 @@ def test_clear_command_reports_summary_when_confirmed(settings, mocker):
     mocker.patch.object(cli, "get_vectorstore", return_value=mocker.Mock())
     mocker.patch.object(cli, "run_delete_all", return_value=DeleteSummary(num_files=5))
 
-    result = runner.invoke(cli.app, ["clear"], input="y\n")
+    result = runner.invoke(cli.app, ["clear"], input="j\n")
 
     assert result.exit_code == 0
     assert "5 Dateien" in result.stdout

@@ -4,6 +4,9 @@ from bundesrag.locales import AVAILABLE_LANGUAGES
 
 DEFAULT_LANGUAGE = "de"
 
+_YES_TOKENS = {"de": {"j", "ja"}, "en": {"y", "yes"}}
+_NO_TOKENS = {"de": {"n", "nein"}, "en": {"n", "no"}}
+
 _current_language = DEFAULT_LANGUAGE
 _messages_by_language: dict[str, dict[str, str]] = {}
 
@@ -26,3 +29,14 @@ def t(key: str, **kwargs: object) -> str:
         _messages_by_language[_current_language] = messages
     message = messages[key]
     return message.format(**kwargs) if kwargs else message
+
+
+def yes_no_tokens() -> tuple[set[str], set[str]]:
+    """Returns the (yes, no) answer tokens accepted for the current language.
+
+    typer.confirm() always recognizes "y"/"yes" and "n"/"no" regardless of the
+    prompt text's language, so a German "[j/N]" prompt would reject "j".
+    Callers that print a localized confirm prompt should parse the answer
+    against these tokens instead of using typer.confirm directly.
+    """
+    return _YES_TOKENS[_current_language], _NO_TOKENS[_current_language]

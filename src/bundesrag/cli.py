@@ -4,7 +4,7 @@ import typer
 
 from bundesrag.config import Settings
 from bundesrag.dip.client import DipClient
-from bundesrag.i18n import set_language, t
+from bundesrag.i18n import set_language, t, yes_no_tokens
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
     run_delete_all,
@@ -30,9 +30,25 @@ def _init() -> Settings:
     return settings
 
 
+def _confirm(text: str) -> bool:
+    """Asks a yes/no question, accepting answers in the current language.
+
+    typer.confirm() only ever recognizes English y/yes/n/no, which silently
+    rejects a German "j" answer to a localized "[j/N]" prompt.
+    """
+    yes_tokens, no_tokens = yes_no_tokens()
+    while True:
+        answer = typer.prompt(text, default="", show_default=False, prompt_suffix="")
+        answer = answer.strip().lower()
+        if not answer or answer in no_tokens:
+            return False
+        if answer in yes_tokens:
+            return True
+
+
 def _confirm_filters(filters: DipQueryFilters) -> bool:
     typer.echo(format_filters(filters))
-    return typer.confirm(t("confirm_use_query"))
+    return _confirm(t("confirm_use_query_yn"))
 
 
 def _confirm_count(count: int) -> int:
@@ -102,7 +118,7 @@ def clear(
     """Deletes all downloaded documents and resets the vector store."""
     settings = _init()
     logger.info("clear command invoked")
-    if not yes and not typer.confirm(t("confirm_delete_all")):
+    if not yes and not _confirm(t("confirm_delete_all_yn")):
         logger.warning("clear aborted: user declined confirmation")
         raise typer.Exit(code=1)
     try:

@@ -8,10 +8,9 @@ MESSAGES = {
         "{count} Dokumente gefunden. Wie viele sollen heruntergeladen werden "
         "(die neuesten zuerst, Enter für alle, 0 zum Abbrechen)? "
     ),
-    "confirm_delete_all": (
-        "Wirklich alle heruntergeladenen Dokumente und die Vektordatenbank löschen?"
+    "confirm_delete_all_yn": (
+        "Wirklich alle heruntergeladenen Dokumente und die Vektordatenbank löschen? [j/N] "
     ),
-    "confirm_use_query": "Abfrage so verwenden?",
     "confirm_use_query_yn": "Abfrage so verwenden? [j/N] ",
     "delete_done": "Fertig: {num_files} Dateien gelöscht und Vektordatenbank zurückgesetzt.",
     "document_reference": "Drucksache/Protokoll {dokumentnummer}",

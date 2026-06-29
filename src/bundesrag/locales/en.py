@@ -8,8 +8,9 @@ MESSAGES = {
         "(most recent first, Enter for all, 0 to cancel)? "
     ),
     "clear_yes_option_help": "Delete without asking for confirmation.",
-    "confirm_delete_all": "Really delete all downloaded documents and reset the vector store?",
-    "confirm_use_query": "Use this query?",
+    "confirm_delete_all_yn": (
+        "Really delete all downloaded documents and reset the vector store? [y/N] "
+    ),
     "confirm_use_query_yn": "Use this query? [y/N] ",
     "delete_done": "Done: {num_files} files deleted and vector store reset.",
     "document_reference": "Document/protocol {dokumentnummer}",
