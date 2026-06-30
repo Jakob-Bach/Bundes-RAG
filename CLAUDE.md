@@ -30,6 +30,10 @@ Requires `MISTRAL_API_KEY` and `DIP_API_KEY` in `.env` (copy from
 which builds `Settings` with fake keys and `_env_file=None`, so no real `.env`
 or network access is needed for unit tests.
 
+After editing `.py` files, run `uv run ruff check . --fix && uv run ruff format .`
+before considering the change done — don't rely on pre-commit to be the first
+check. Lint config lives in `ruff.toml`.
+
 ## Architecture
 
 Four pipelines share the same Chroma vector store (`src/bundesrag/vectorstore.py`),
