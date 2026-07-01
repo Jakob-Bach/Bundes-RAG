@@ -62,7 +62,33 @@ def _confirm_count(count: int) -> int:
 
 @app.command()
 def download(prompt: str) -> None:
-    """Downloads documents matching PROMPT, without indexing them."""
+    """Downloads documents matching PROMPT, without indexing them.
+
+    PROMPT is a natural-language description of the documents to fetch. An LLM
+    translates it into DIP API filters and asks for clarification if the prompt
+    is too vague.
+
+    Available endpoints:
+
+    \b
+    - drucksache: Anträge, Gesetzentwürfe, Kleine Anfragen, etc.
+    - plenarprotokoll: Plenarsitzungsprotokolle.
+
+    Available filters (all optional):
+
+    \b
+    - datum_start / datum_end: Datumsbereich (z. B. "seit 01.01.2026")
+    - wahlperiode: Wahlperiodennummer (z. B. 21)
+    - dokumentnummer: exakte Drucksachen-/Protokollnummer (z. B. "19/1")
+    - zuordnung: BT, BR, BV oder EK
+    - drucksachetyp: Dokumenttyp, z. B. "Antrag", "Gesetzentwurf" (nur drucksache)
+    - urheber: Urheber/Fraktion, z. B. "Fraktion der SPD" (nur drucksache)
+    - ressort_fdf: federführendes Bundesministerium (nur drucksache)
+    - titel: Suchbegriffe im Titel, ODER-verknüpft (nur drucksache)
+
+    Note: urheber and ressort_fdf use AND logic across multiple values. To find
+    documents from either of two authors, run separate download commands.
+    """
     settings = _init()
     logger.info("download query: %s", prompt)
     dip_client = DipClient(api_key=settings.dip_api_key)
