@@ -38,6 +38,8 @@ MESSAGES = {
     "query_agent_failed": (
         "Konnte aus der Anfrage auch nach mehreren Rückfragen keine gültige DIP-Abfrage erstellen."
     ),
+    "serve_help": "Startet die lokale Weboberfläche (FastAPI + Vue SPA).",
+    "serve_started": "Weboberfläche läuft auf http://{host}:{port}/ (Beenden mit Strg+C).",
     "similarity_suffix": " (Ähnlichkeit: {score})",
     "sources_header": "\nQuellen:",
     "status_file_indexed": "indexiert",

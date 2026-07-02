@@ -84,6 +84,23 @@ Deletes every downloaded PDF, resets the Chroma vector store, and clears the
 pending-index manifest. Asks for confirmation unless `--yes`/`-y` is passed.
 This is destructive and irreversible.
 
+### Web interface
+
+```sh
+uv run bundesrag serve
+```
+
+Starts a local web UI at http://127.0.0.1:8000/ covering the same
+download/index/ask/status/clear operations as the CLI commands above, using
+the same `data/` directory and Chroma store — the CLI and web interface can
+be used interchangeably against the same data. Use `--host`/`--port` to
+change the bind address, and `--reload` during development.
+
+The clarifying questions and filter/count confirmations during download work
+the same way as the CLI's interactive prompts, just rendered as web forms.
+The page is served from the pre-built frontend in `frontend/dist` (see
+[Frontend development](#frontend-development) for how to build it).
+
 ## Data storage
 
 - `data/pdfs/` — downloaded PDFs, organized by document type
@@ -108,7 +125,11 @@ downloaded PDFs and the vector store persist across runs:
 docker run --rm -it --env-file .env -v ./data:/app/data bundesrag download "Plenarprotokolle der 21. Wahlperiode."
 docker run --rm -it --env-file .env -v ./data:/app/data bundesrag index
 docker run --rm -it --env-file .env -v ./data:/app/data bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?"
+docker run --rm -it --env-file .env -v ./data:/app/data -p 8000:8000 bundesrag serve --host 0.0.0.0
 ```
+
+The image builds the web frontend in a separate stage, so running `serve`
+works out of the box without Node.js on the host.
 
 The container's entrypoint is the `bundesrag` CLI, so any arguments after the
 image name are passed straight to it (run without arguments to see `--help`).
@@ -117,6 +138,27 @@ image name are passed straight to it (run without arguments to see `--help`).
 
 ```sh
 uv run pytest
+```
+
+## Frontend development
+
+The web UI source lives in `frontend/` (Vue 3 + Vite, styled with Pico.css)
+and requires [Node.js](https://nodejs.org/) — only for building or working
+on the frontend, not for running the backend. To work on it with hot-reload
+against a locally running backend:
+
+```sh
+uv run bundesrag serve   # backend on :8000
+cd frontend
+npm install
+npm run dev              # frontend dev server on :5173, proxies /api to :8000
+```
+
+To produce the static build that `bundesrag serve` serves:
+
+```sh
+cd frontend
+npm run build            # writes frontend/dist
 ```
 
 ## Known limitations

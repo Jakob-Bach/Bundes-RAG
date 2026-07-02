@@ -4,11 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Bundes-RAG is a CLI tool that lets a user describe, in German, which documents
+Bundes-RAG is a tool that lets a user describe, in German, which documents
 from the Bundestag's DIP (Dokumentations- und Informationssystem für
 Parlamentsmaterialien) to download and index, then answer natural-language
 German questions about them via RAG, with citations to source documents and
-pages.
+pages. It has two equivalent interfaces sharing the same data directory: a
+CLI (`src/bundesrag/cli.py`) and a web UI (FastAPI backend in
+`src/bundesrag/web/`, Vue 3 + Vite SPA in `frontend/`).
 
 ## Commands
 
@@ -23,6 +25,9 @@ uv run bundesrag download "Plenarprotokolle der 21. Wahlperiode."  # download do
 uv run bundesrag index  # index downloaded-but-not-yet-indexed docs
 uv run bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?"  # query
 uv run bundesrag clear  # delete all downloaded PDFs and reset the vector store
+uv run bundesrag serve  # start the web UI at http://127.0.0.1:8000/
+cd frontend && npm install && npm run dev  # frontend dev server (proxies /api to :8000)
+cd frontend && npm run build  # build the SPA that `serve` hosts (frontend/dist)
 ```
 
 Requires `MISTRAL_API_KEY` and `DIP_API_KEY` in `.env` (copy from
@@ -105,3 +110,21 @@ properties.
 **Progress reporting** (`progress.py`): long multi-step CLI operations print
 `[Schritt n/total] <name>` before each step; per-item loops (downloads,
 indexing) use `tqdm`.
+
+**Web layer** (`src/bundesrag/web/`): purely additive over the pipelines —
+no pipeline/agent code was changed for it. `app.py: create_app` (uvicorn
+factory used by the `serve` CLI command) stores `Settings` and a `JobManager`
+on `app.state` and mounts `frontend/dist` as static files (path overridable
+via `BUNDESRAG_FRONTEND_DIST`; if missing, the API still runs). Fast
+operations (`/api/ask`, `/api/clear`, `/api/status` in `routes_sync.py`) are
+plain sync endpoints. Long-running ones (`/api/download`, `/api/index` in
+`routes_jobs.py`) run in a background thread via `jobs.py: JobManager` and
+are polled by the frontend (`GET /api/download/{job_id}`). The CLI's
+interactive prompts (`ask_user`/`confirm_filters`/`confirm_count`) are
+bridged to HTTP without touching `QueryAgent`: the injected callables block
+on a `threading.Event` in `JobManager.wait_for_answer`, which sets the job
+to `waiting_input`; the frontend renders the matching form and POSTs to
+`/api/download/{job_id}/respond`, unblocking the worker thread. This design
+requires running the server as a single process (the job store is an
+in-process dict). Web tests (`tests/test_web_*.py`) inject fakes via
+`app.dependency_overrides` on the `dependencies.py` provider functions.

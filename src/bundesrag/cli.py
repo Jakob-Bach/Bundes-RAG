@@ -177,6 +177,23 @@ def status() -> None:
 
 
 @app.command()
+def serve(
+    host: str = typer.Option("127.0.0.1", "--host", help="Bind address of the web server."),
+    port: int = typer.Option(8000, "--port", help="Port of the web server."),
+    reload: bool = typer.Option(
+        False, "--reload", help="Auto-reload on source changes (development only)."
+    ),
+) -> None:
+    """Starts the local web interface (FastAPI + Vue SPA)."""
+    import uvicorn
+
+    _init()
+    logger.info("starting web server on %s:%d", host, port)
+    typer.echo(t("serve_started", host=host, port=port))
+    uvicorn.run("bundesrag.web.app:create_app", host=host, port=port, reload=reload, factory=True)
+
+
+@app.command()
 def ask(question: str) -> None:
     """Answers QUESTION based on the stored documents."""
     settings = _init()

@@ -38,6 +38,8 @@ MESSAGES = {
         "Could not build a valid DIP query from the request even after "
         "several clarification rounds."
     ),
+    "serve_help": "Starts the local web interface (FastAPI + Vue SPA).",
+    "serve_started": "Web interface running at http://{host}:{port}/ (stop with Ctrl+C).",
     "similarity_suffix": " (similarity: {score})",
     "sources_header": "\nSources:",
     "status_file_indexed": "indexed",
