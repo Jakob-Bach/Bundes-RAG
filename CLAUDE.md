@@ -134,9 +134,12 @@ German but embed the configured language's name (`locales.LANGUAGE_NAMES`)
 so clarification questions and answers come back in that language. Yes/no
 confirmations use `cli._confirm` with `i18n.yes_no_tokens()` instead of
 `typer.confirm`, which only ever accepts English y/yes/n/no and would
-silently reject a German "j". Caveat: Typer help text is currently
-English-only (hardcoded docstrings in `cli.py`); the `*_help` keys in the
-locale files are not wired up.
+silently reject a German "j". Typer help text is localized too (`*_help`
+locale keys passed as `help=` to the decorators), but it's resolved when
+`cli.py` is imported — before any command's `_init()` — so `cli.py` calls
+`set_language(config.detect_language())` at module level;
+`detect_language` reads only the `language` setting so that `--help` works
+without API keys, falling back to the default for unsupported values.
 
 **Logging** (`logging_config.py`): the `bundesrag` package logger writes to
 `data/bundesrag.log` (file only, INFO level, no propagation). `setup_logging`

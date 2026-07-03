@@ -16,7 +16,35 @@ MESSAGES = {
     "document_reference": "Document/protocol {dokumentnummer}",
     "download_aborted": "Aborted: download of {count} documents cancelled.",
     "download_done": "Done: {num_documents} documents downloaded.",
-    "download_help": "Downloads documents matching PROMPT, without indexing them.",
+    "download_help": (
+        "Downloads documents matching PROMPT, without indexing them.\n"
+        "\n"
+        "PROMPT is a natural-language description of the documents to fetch. "
+        "An LLM translates it into DIP API filters and asks for clarification "
+        "if the prompt is too vague.\n"
+        "\n"
+        "Available endpoints:\n"
+        "\n"
+        "\b\n"
+        "- drucksache: motions, bills, minor interpellations, etc.\n"
+        "- plenarprotokoll: plenary session protocols.\n"
+        "\n"
+        "Available filters (all optional):\n"
+        "\n"
+        "\b\n"
+        '- datum_start / datum_end: date range (e.g. "since 2026-01-01")\n'
+        "- wahlperiode: electoral term number (e.g. 21)\n"
+        '- dokumentnummer: exact document/protocol number (e.g. "19/1")\n'
+        "- zuordnung: BT, BR, BV, or EK\n"
+        '- drucksachetyp: document type, e.g. "Antrag", "Gesetzentwurf" (drucksache only)\n'
+        '- urheber: originator/parliamentary group, e.g. "Fraktion der SPD" (drucksache only)\n'
+        "- ressort_fdf: lead federal ministry (drucksache only)\n"
+        "- titel: search terms in the title, OR-combined (drucksache only)\n"
+        "\n"
+        "Note: urheber and ressort_fdf use AND logic across multiple values. "
+        "To find documents from either of two authors, run separate download "
+        "commands."
+    ),
     "download_partial_failure": (
         "Warning: {num_failed} document(s) could not be downloaded and were skipped."
     ),
@@ -42,6 +70,9 @@ MESSAGES = {
         "several clarification rounds."
     ),
     "serve_help": "Starts the local web interface (FastAPI + Vue SPA).",
+    "serve_host_option_help": "Bind address of the web server.",
+    "serve_port_option_help": "Port of the web server.",
+    "serve_reload_option_help": "Auto-reload on source changes (development only).",
     "serve_started": "Web interface running at http://{host}:{port}/ (stop with Ctrl+C).",
     "similarity_suffix": " (similarity: {score})",
     "sources_header": "\nSources:",

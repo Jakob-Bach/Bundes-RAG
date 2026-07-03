@@ -2,7 +2,7 @@ import logging
 
 import typer
 
-from bundesrag.config import Settings
+from bundesrag.config import Settings, detect_language
 from bundesrag.dip.client import DipClient
 from bundesrag.i18n import set_language, t, yes_no_tokens
 from bundesrag.ingestion.pipeline import (
@@ -18,7 +18,12 @@ from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.rag.answer_agent import answer_question, create_chat_llm
 from bundesrag.vectorstore import get_vectorstore
 
-app = typer.Typer(help="Download Bundestag documents and ask questions about them.")
+# Help text is rendered from the locale files at import time (the command
+# decorators below run before any command's _init()), so the language must be
+# known here already; detect_language() reads it without requiring API keys.
+set_language(detect_language())
+
+app = typer.Typer(help=t("app_help"))
 
 logger = logging.getLogger(LOGGER_NAME)
 
@@ -60,35 +65,8 @@ def _confirm_count(count: int) -> int:
     return max(0, min(chosen, count))
 
 
-@app.command()
+@app.command(help=t("download_help"))
 def download(prompt: str) -> None:
-    """Downloads documents matching PROMPT, without indexing them.
-
-    PROMPT is a natural-language description of the documents to fetch. An LLM
-    translates it into DIP API filters and asks for clarification if the prompt
-    is too vague.
-
-    Available endpoints:
-
-    \b
-    - drucksache: Anträge, Gesetzentwürfe, Kleine Anfragen, etc.
-    - plenarprotokoll: Plenarsitzungsprotokolle.
-
-    Available filters (all optional):
-
-    \b
-    - datum_start / datum_end: Datumsbereich (z. B. "seit 01.01.2026")
-    - wahlperiode: Wahlperiodennummer (z. B. 21)
-    - dokumentnummer: exakte Drucksachen-/Protokollnummer (z. B. "19/1")
-    - zuordnung: BT, BR, BV oder EK
-    - drucksachetyp: Dokumenttyp, z. B. "Antrag", "Gesetzentwurf" (nur drucksache)
-    - urheber: Urheber/Fraktion, z. B. "Fraktion der SPD" (nur drucksache)
-    - ressort_fdf: federführendes Bundesministerium (nur drucksache)
-    - titel: Suchbegriffe im Titel, ODER-verknüpft (nur drucksache)
-
-    Note: urheber and ressort_fdf use AND logic across multiple values. To find
-    documents from either of two authors, run separate download commands.
-    """
     settings = _init()
     logger.info("download query: %s", prompt)
     dip_client = DipClient(api_key=settings.dip_api_key)
@@ -125,9 +103,8 @@ def download(prompt: str) -> None:
         typer.echo(t("download_partial_failure", num_failed=summary.num_failed))
 
 
-@app.command()
+@app.command(help=t("index_help"))
 def index() -> None:
-    """Indexes previously downloaded but not yet indexed documents."""
     settings = _init()
     logger.info("index command invoked")
     try:
@@ -142,11 +119,10 @@ def index() -> None:
     typer.echo(t("index_done", num_documents=summary.num_documents, num_chunks=summary.num_chunks))
 
 
-@app.command()
+@app.command(help=t("clear_help"))
 def clear(
-    yes: bool = typer.Option(False, "--yes", "-y", help="Delete without asking for confirmation."),
+    yes: bool = typer.Option(False, "--yes", "-y", help=t("clear_yes_option_help")),
 ) -> None:
-    """Deletes all downloaded documents and resets the vector store."""
     settings = _init()
     logger.info("clear command invoked")
     if not yes and not _confirm(t("confirm_delete_all_yn")):
@@ -162,9 +138,8 @@ def clear(
     typer.echo(t("delete_done", num_files=summary.num_files))
 
 
-@app.command()
+@app.command(help=t("status_help"))
 def status() -> None:
-    """Shows how many documents are downloaded and indexed."""
     settings = _init()
     logger.info("status command invoked")
     summary = run_status(settings)
@@ -181,15 +156,12 @@ def status() -> None:
         typer.echo(f"  - {file.pdf_path} ({status_label})")
 
 
-@app.command()
+@app.command(help=t("serve_help"))
 def serve(
-    host: str = typer.Option("127.0.0.1", "--host", help="Bind address of the web server."),
-    port: int = typer.Option(8000, "--port", help="Port of the web server."),
-    reload: bool = typer.Option(
-        False, "--reload", help="Auto-reload on source changes (development only)."
-    ),
+    host: str = typer.Option("127.0.0.1", "--host", help=t("serve_host_option_help")),
+    port: int = typer.Option(8000, "--port", help=t("serve_port_option_help")),
+    reload: bool = typer.Option(False, "--reload", help=t("serve_reload_option_help")),
 ) -> None:
-    """Starts the local web interface (FastAPI + Vue SPA)."""
     import uvicorn
 
     _init()
@@ -198,9 +170,8 @@ def serve(
     uvicorn.run("bundesrag.web.app:create_app", host=host, port=port, reload=reload, factory=True)
 
 
-@app.command()
+@app.command(help=t("ask_help"))
 def ask(question: str) -> None:
-    """Answers QUESTION based on the stored documents."""
     settings = _init()
     logger.info("ask query: %s", question)
     try:

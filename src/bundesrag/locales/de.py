@@ -16,7 +16,35 @@ MESSAGES = {
     "document_reference": "Drucksache/Protokoll {dokumentnummer}",
     "download_aborted": "Abgebrochen: Download von {count} Dokumenten abgebrochen.",
     "download_done": "Fertig: {num_documents} Dokumente heruntergeladen.",
-    "download_help": "Lädt Dokumente passend zu PROMPT herunter, ohne sie zu indexieren.",
+    "download_help": (
+        "Lädt Dokumente passend zu PROMPT herunter, ohne sie zu indexieren.\n"
+        "\n"
+        "PROMPT ist eine natürlichsprachliche Beschreibung der gesuchten Dokumente. "
+        "Ein LLM übersetzt sie in DIP-API-Filter und stellt eine Rückfrage, wenn "
+        "die Anfrage zu vage ist.\n"
+        "\n"
+        "Verfügbare Endpunkte:\n"
+        "\n"
+        "\b\n"
+        "- drucksache: Anträge, Gesetzentwürfe, Kleine Anfragen usw.\n"
+        "- plenarprotokoll: Plenarsitzungsprotokolle.\n"
+        "\n"
+        "Verfügbare Filter (alle optional):\n"
+        "\n"
+        "\b\n"
+        '- datum_start / datum_end: Datumsbereich (z. B. "seit 01.01.2026")\n'
+        "- wahlperiode: Wahlperiodennummer (z. B. 21)\n"
+        '- dokumentnummer: exakte Drucksachen-/Protokollnummer (z. B. "19/1")\n'
+        "- zuordnung: BT, BR, BV oder EK\n"
+        '- drucksachetyp: Dokumenttyp, z. B. "Antrag", "Gesetzentwurf" (nur drucksache)\n'
+        '- urheber: Urheber/Fraktion, z. B. "Fraktion der SPD" (nur drucksache)\n'
+        "- ressort_fdf: federführendes Bundesministerium (nur drucksache)\n"
+        "- titel: Suchbegriffe im Titel, ODER-verknüpft (nur drucksache)\n"
+        "\n"
+        "Hinweis: urheber und ressort_fdf werden über mehrere Werte UND-verknüpft. "
+        "Um Dokumente von einem von zwei Urhebern zu finden, sind zwei getrennte "
+        "download-Aufrufe nötig."
+    ),
     "download_partial_failure": (
         "Achtung: {num_failed} Dokument(e) konnten nicht heruntergeladen werden "
         "und wurden übersprungen."
@@ -42,6 +70,11 @@ MESSAGES = {
         "Konnte aus der Anfrage auch nach mehreren Rückfragen keine gültige DIP-Abfrage erstellen."
     ),
     "serve_help": "Startet die lokale Weboberfläche (FastAPI + Vue SPA).",
+    "serve_host_option_help": "Adresse, an die der Webserver gebunden wird.",
+    "serve_port_option_help": "Port des Webservers.",
+    "serve_reload_option_help": (
+        "Bei Quellcode-Änderungen automatisch neu laden (nur für die Entwicklung)."
+    ),
     "serve_started": "Weboberfläche läuft auf http://{host}:{port}/ (Beenden mit Strg+C).",
     "similarity_suffix": " (Ähnlichkeit: {score})",
     "sources_header": "\nQuellen:",

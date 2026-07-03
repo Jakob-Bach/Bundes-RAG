@@ -1,6 +1,9 @@
+from importlib import import_module
+
 from typer.testing import CliRunner
 
 from bundesrag import cli
+from bundesrag.config import detect_language
 from bundesrag.ingestion.pipeline import (
     DeleteSummary,
     DownloadAborted,
@@ -12,6 +15,16 @@ from bundesrag.ingestion.pipeline import (
 from bundesrag.rag.answer_agent import AnswerResult
 
 runner = CliRunner()
+
+
+def test_help_texts_come_from_locale_files():
+    # Help strings are resolved when bundesrag.cli is imported, in the
+    # language detect_language() reports for this environment.
+    messages = import_module(f"bundesrag.locales.{detect_language()}").MESSAGES
+    assert cli.app.info.help == messages["app_help"]
+    helps = {info.name or info.callback.__name__: info.help for info in cli.app.registered_commands}
+    for command in ("download", "index", "ask", "status", "clear", "serve"):
+        assert helps[command] == messages[f"{command}_help"]
 
 
 def test_download_command_reports_summary(settings, mocker):
