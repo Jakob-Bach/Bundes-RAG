@@ -20,6 +20,9 @@ MESSAGES = {
     "download_partial_failure": (
         "Warning: {num_failed} document(s) could not be downloaded and were skipped."
     ),
+    "download_skipped_existing": (
+        "Note: {num_skipped} document(s) were already downloaded and were skipped."
+    ),
     "filter_dokumentnummer": "  Document number: {value}",
     "filter_drucksachetyp": "  Document type: {value}",
     "filter_ressort": "  Department: {value}",

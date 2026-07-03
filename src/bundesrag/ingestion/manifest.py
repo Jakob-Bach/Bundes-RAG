@@ -48,9 +48,12 @@ def save_pending(settings: Settings, entries: list[PendingDocument]) -> None:
 def add_pending(settings: Settings, new_entries: list[PendingDocument]) -> None:
     if not new_entries:
         return
-    entries = load_pending(settings)
-    entries.extend(new_entries)
-    save_pending(settings, entries)
+    # Deduplicate by pdf_path (newest entry wins) so re-downloading the same
+    # documents doesn't list them as pending twice and double the index work.
+    by_path = {entry.pdf_path: entry for entry in load_pending(settings)}
+    for entry in new_entries:
+        by_path[entry.pdf_path] = entry
+    save_pending(settings, list(by_path.values()))
 
 
 def remove_pending(settings: Settings, pdf_path: Path) -> None:

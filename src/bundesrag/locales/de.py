@@ -21,6 +21,9 @@ MESSAGES = {
         "Achtung: {num_failed} Dokument(e) konnten nicht heruntergeladen werden "
         "und wurden übersprungen."
     ),
+    "download_skipped_existing": (
+        "Hinweis: {num_skipped} Dokument(e) waren bereits heruntergeladen und wurden übersprungen."
+    ),
     "filter_dokumentnummer": "  Dokumentnummer: {value}",
     "filter_drucksachetyp": "  Drucksachetyp: {value}",
     "filter_ressort": "  Ressort: {value}",

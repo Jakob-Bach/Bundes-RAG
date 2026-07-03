@@ -113,9 +113,14 @@ def download(prompt: str) -> None:
     finally:
         dip_client.close()
     logger.info(
-        "download succeeded: %d documents, %d failed", summary.num_documents, summary.num_failed
+        "download succeeded: %d documents, %d failed, %d already downloaded",
+        summary.num_documents,
+        summary.num_failed,
+        summary.num_skipped,
     )
     typer.echo(t("download_done", num_documents=summary.num_documents))
+    if summary.num_skipped:
+        typer.echo(t("download_skipped_existing", num_skipped=summary.num_skipped))
     if summary.num_failed:
         typer.echo(t("download_partial_failure", num_failed=summary.num_failed))
 

@@ -37,7 +37,9 @@ def _job_response(job: Job) -> JobResponse:
     result = None
     if isinstance(job.result, DownloadSummary):
         result = DownloadSummaryResponse(
-            num_documents=job.result.num_documents, num_failed=job.result.num_failed
+            num_documents=job.result.num_documents,
+            num_failed=job.result.num_failed,
+            num_skipped=job.result.num_skipped,
         )
     elif isinstance(job.result, IndexSummary):
         result = IndexSummaryResponse(

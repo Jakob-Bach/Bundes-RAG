@@ -31,6 +31,14 @@ def test_add_pending_appends_to_existing_entries(settings):
     assert [entry.meta["id"] for entry in pending] == ["1", "2"]
 
 
+def test_add_pending_deduplicates_by_pdf_path_keeping_newest(settings):
+    add_pending(settings, [_pending("a.pdf", "1"), _pending("b.pdf", "2")])
+    add_pending(settings, [_pending("a.pdf", "1-neu")])
+
+    pending = load_pending(settings)
+    assert [entry.meta["id"] for entry in pending] == ["1-neu", "2"]
+
+
 def test_remove_pending_removes_only_matching_entry(settings):
     add_pending(settings, [_pending("a.pdf", "1"), _pending("b.pdf", "2")])
 

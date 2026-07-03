@@ -82,7 +82,7 @@ def test_download_happy_path(client, settings, query_agent, dip_client):
     assert response.status_code == 204
 
     body = _poll_job(client, job_id, lambda b: b["status"] == "done")
-    assert body["result"] == {"num_documents": 1, "num_failed": 0}
+    assert body["result"] == {"num_documents": 1, "num_failed": 0, "num_skipped": 0}
     assert len(load_pending(settings)) == 1
     dip_client.close.assert_called_once()
 

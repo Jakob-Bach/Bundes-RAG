@@ -151,6 +151,33 @@ def test_run_download_counts_documents_without_pdf_url_as_failed(settings, query
     assert pending[0].meta["id"] == "2"
 
 
+def test_run_download_skips_already_downloaded_documents(settings, query_agent, dip_client):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+    existing_pdf = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    existing_pdf.parent.mkdir(parents=True, exist_ok=True)
+    existing_pdf.write_bytes(b"%PDF-1.4")
+
+    summary = run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
+    )
+
+    assert summary.num_documents == 1
+    assert summary.num_skipped == 1
+    assert summary.num_failed == 0
+    dip_client.download_pdf.assert_called_once()
+    pending = load_pending(settings)
+    assert [entry.meta["id"] for entry in pending] == ["2"]
+
+
 def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_client):
     query_agent.build_query.return_value = DipQueryFilters(
         endpoint="plenarprotokoll", wahlperiode=21

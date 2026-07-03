@@ -10,6 +10,7 @@ class DownloadRequest(BaseModel):
 class DownloadSummaryResponse(BaseModel):
     num_documents: int
     num_failed: int
+    num_skipped: int
 
 
 class IndexSummaryResponse(BaseModel):

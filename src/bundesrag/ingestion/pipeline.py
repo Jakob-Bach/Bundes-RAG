@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 class DownloadSummary:
     num_documents: int
     num_failed: int = 0
+    num_skipped: int = 0
 
 
 @dataclass
@@ -84,15 +85,27 @@ def run_download(
             metas = sorted(metas, key=lambda meta: meta.datum, reverse=True)[:chosen_count]
 
     step(3, 3, t("step_download_pdfs"))
+    # Skip documents whose PDF already exists locally, so repeating a query
+    # neither re-downloads nor re-queues them for indexing; the progress bar
+    # then only covers actual downloads.
+    to_download = []
+    num_skipped = 0
+    for meta in metas:
+        dest = settings.pdf_dir / filters.endpoint / f"{meta.dokumentnummer.replace('/', '_')}.pdf"
+        if dest.exists():
+            logger.info("already downloaded %s, skipping", meta.dokumentnummer)
+            num_skipped += 1
+            continue
+        to_download.append((meta, dest))
+
     pending = []
     num_failed = 0
-    for meta in tqdm(metas, desc="Download"):
+    for meta, dest in tqdm(to_download, desc="Download"):
         pdf_url = meta.pdf_url
         if not pdf_url:
             logger.warning("no pdf_url for %s, skipping", meta.dokumentnummer)
             num_failed += 1
             continue
-        dest = settings.pdf_dir / filters.endpoint / f"{meta.dokumentnummer.replace('/', '_')}.pdf"
         try:
             pdf_path = dip_client.download_pdf(pdf_url, dest)
         except httpx.HTTPError:
@@ -108,7 +121,9 @@ def run_download(
         )
 
     add_pending(settings, pending)
-    return DownloadSummary(num_documents=len(pending), num_failed=num_failed)
+    return DownloadSummary(
+        num_documents=len(pending), num_failed=num_failed, num_skipped=num_skipped
+    )
 
 
 def run_index(settings: Settings, *, vectorstore: Chroma) -> IndexSummary:

@@ -110,6 +110,10 @@ onUnmounted(stopPolling)
 
       <p v-else-if="job.status === 'done'">
         Fertig: {{ job.result.num_documents }} Dokumente heruntergeladen.
+        <template v-if="job.result.num_skipped">
+          Hinweis: {{ job.result.num_skipped }} Dokument(e) waren bereits heruntergeladen
+          und wurden übersprungen.
+        </template>
         <template v-if="job.result.num_failed">
           Achtung: {{ job.result.num_failed }} Dokument(e) konnten nicht heruntergeladen werden
           und wurden übersprungen.
