@@ -1,4 +1,5 @@
 MESSAGES = {
+    "answer_must_be_integer": "Die Antwort muss eine ganze Zahl sein.",
     "app_help": "Lade Bundestagsdokumente herunter und stelle Fragen dazu.",
     "ask_help": "Beantwortet QUESTION auf Basis der gespeicherten Dokumente.",
     "ask_query_feedback": "Was soll an der Abfrage angepasst werden?",
@@ -12,6 +13,7 @@ MESSAGES = {
         "Wirklich alle heruntergeladenen Dokumente und die Vektordatenbank löschen? [j/N] "
     ),
     "confirm_use_query_yn": "Abfrage so verwenden? [j/N] ",
+    "confirmation_required": "Bestätigung erforderlich.",
     "delete_done": "Fertig: {num_files} Dateien gelöscht und Vektordatenbank zurückgesetzt.",
     "document_reference": "Drucksache/Protokoll {dokumentnummer}",
     "download_aborted": "Abgebrochen: Download von {count} Dokumenten abgebrochen.",
@@ -62,6 +64,8 @@ MESSAGES = {
     "filter_zuordnung": "  Zuordnung: {value}",
     "index_done": "Fertig: {num_documents} Dokumente, {num_chunks} Textabschnitte gespeichert.",
     "index_help": "Indexiert zuvor heruntergeladene, aber noch nicht indexierte Dokumente.",
+    "job_not_found": "Job nicht gefunden.",
+    "job_not_waiting": "Der Job wartet nicht auf eine Eingabe.",
     "page_short": "S. {page}",
     "page_suffix": ", Seite {page}",
     "planned_query_header": "Geplante DIP-Abfrage (Endpunkt: {endpoint}):",

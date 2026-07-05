@@ -140,6 +140,14 @@ locale keys passed as `help=` to the decorators), but it's resolved when
 `set_language(config.detect_language())` at module level;
 `detect_language` reads only the `language` setting so that `--help` works
 without API keys, falling back to the default for unsupported values.
+The Vue SPA has its own vue-i18n catalogs (`frontend/src/locales/de.js`/`en.js`,
+Composition API mode): `main.js` fetches the configured language from
+`GET /api/config` before mounting (falling back to German if the API is
+unreachable) and sets the vue-i18n locale plus `<html lang>`. Catalog keys
+that duplicate backend strings (`download_done`, `index_done`, `delete_done`,
+`ask_download_count`, …) deliberately reuse the Python locale key names so
+drift between `locales/*.py` and `frontend/src/locales/*.js` is greppable —
+when changing one of these strings, update both catalogs.
 
 **Logging** (`logging_config.py`): the `bundesrag` package logger writes to
 `data/bundesrag.log` (file only, INFO level, no propagation). `setup_logging`
@@ -157,8 +165,11 @@ no pipeline/agent code was changed for it. `app.py: create_app` (uvicorn
 factory used by the `serve` CLI command) stores `Settings` and a `JobManager`
 on `app.state` and mounts `frontend/dist` as static files (path overridable
 via `BUNDESRAG_FRONTEND_DIST`; if missing, the API still runs). Fast
-operations (`/api/ask`, `/api/clear`, `/api/status` in `routes_sync.py`) are
-plain sync endpoints. Long-running ones (`/api/download`, `/api/index` in
+operations (`/api/ask`, `/api/clear`, `/api/status`, and `/api/config` —
+which exposes `settings.language` for the SPA's i18n bootstrap — in
+`routes_sync.py`) are plain sync endpoints; their `HTTPException` details
+are localized via `t()` (as are the job-route 400/404/409 details), while
+the job `error` field stays raw exception text. Long-running ones (`/api/download`, `/api/index` in
 `routes_jobs.py`) run in a background thread via `jobs.py: JobManager` and
 are polled by the frontend (`GET /api/download/{job_id}`). The CLI's
 interactive prompts (`ask_user`/`confirm_filters`/`confirm_count`) are

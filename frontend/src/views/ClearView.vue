@@ -1,13 +1,15 @@
 <script setup>
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { clear } from '../api'
 
+const { t } = useI18n()
 const result = ref(null)
 const error = ref(null)
 const busy = ref(false)
 
 async function submit() {
-  if (!window.confirm('Wirklich alle heruntergeladenen Dokumente und die Vektordatenbank löschen?')) {
+  if (!window.confirm(t('confirm_delete_all'))) {
     return
   }
   error.value = null
@@ -25,15 +27,10 @@ async function submit() {
 
 <template>
   <section>
-    <h2>Löschen</h2>
-    <p>
-      Löscht alle heruntergeladenen PDFs, setzt die Vektordatenbank zurück und leert die Liste
-      wartender Dokumente. Dieser Schritt kann nicht rückgängig gemacht werden.
-    </p>
-    <button :disabled="busy" :aria-busy="busy" @click="submit">Alles löschen</button>
+    <h2>{{ $t('clear_title') }}</h2>
+    <p>{{ $t('clear_description') }}</p>
+    <button :disabled="busy" :aria-busy="busy" @click="submit">{{ $t('clear_submit') }}</button>
     <p v-if="error">{{ error }}</p>
-    <p v-if="result">
-      Fertig: {{ result.num_files }} Dateien gelöscht und Vektordatenbank zurückgesetzt.
-    </p>
+    <p v-if="result">{{ $t('delete_done', { num_files: result.num_files }) }}</p>
   </section>
 </template>

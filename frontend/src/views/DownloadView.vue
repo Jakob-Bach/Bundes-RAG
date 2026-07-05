@@ -61,65 +61,60 @@ onUnmounted(stopPolling)
 
 <template>
   <section>
-    <h2>Herunterladen</h2>
+    <h2>{{ $t('download_title') }}</h2>
     <form @submit.prevent="submit">
       <label>
-        Beschreibung der gewünschten Dokumente
+        {{ $t('download_prompt_label') }}
         <textarea
           v-model="prompt"
           rows="3"
-          placeholder="Plenarprotokolle der 21. Wahlperiode."
+          :placeholder="$t('download_prompt_placeholder')"
           required
         ></textarea>
       </label>
       <button type="submit" :disabled="job && (job.status === 'running' || job.status === 'waiting_input')">
-        Herunterladen starten
+        {{ $t('download_submit') }}
       </button>
     </form>
     <p v-if="error">{{ error }}</p>
     <template v-if="job">
-      <p v-if="job.status === 'running'" aria-busy="true">Verarbeitung läuft …</p>
+      <p v-if="job.status === 'running'" aria-busy="true">{{ $t('download_running') }}</p>
 
       <article v-else-if="job.status === 'waiting_input' && job.pending.kind === 'ask_user'">
         <p>{{ job.pending.question }}</p>
         <form @submit.prevent="respond(answerText)">
           <input v-model="answerText" type="text" required />
-          <button type="submit">Antworten</button>
+          <button type="submit">{{ $t('answer_submit') }}</button>
         </form>
       </article>
 
       <article v-else-if="job.status === 'waiting_input' && job.pending.kind === 'confirm_filters'">
         <pre>{{ job.pending.filters_text }}</pre>
-        <p>Abfrage so verwenden?</p>
+        <p>{{ $t('confirm_use_query') }}</p>
         <div class="grid">
-          <button @click="respond('true')">Ja</button>
-          <button class="secondary" @click="respond('false')">Nein</button>
+          <button @click="respond('true')">{{ $t('yes') }}</button>
+          <button class="secondary" @click="respond('false')">{{ $t('no') }}</button>
         </div>
       </article>
 
       <article v-else-if="job.status === 'waiting_input' && job.pending.kind === 'confirm_count'">
-        <p>
-          {{ job.pending.count }} Dokumente gefunden. Wie viele sollen heruntergeladen werden
-          (die neuesten zuerst, 0 zum Abbrechen)?
-        </p>
+        <p>{{ $t('ask_download_count', { count: job.pending.count }) }}</p>
         <form @submit.prevent="respond(String(countValue))">
           <input v-model.number="countValue" type="number" min="0" :max="job.pending.count" required />
-          <button type="submit">Bestätigen</button>
+          <button type="submit">{{ $t('count_submit') }}</button>
         </form>
       </article>
 
       <p v-else-if="job.status === 'done'">
-        Fertig: {{ job.result.num_documents }} Dokumente heruntergeladen.
+        {{ $t('download_done', { num_documents: job.result.num_documents }) }}
         <template v-if="job.result.num_skipped">
-          Hinweis: {{ job.result.num_skipped }} Dokument(e) waren bereits heruntergeladen
-          und wurden übersprungen.
+          {{ $t('download_skipped_existing', { num_skipped: job.result.num_skipped }) }}
         </template>
         <template v-if="job.result.num_failed">
-          Achtung: {{ job.result.num_failed }} Dokument(e) konnten nicht heruntergeladen werden
-          und wurden übersprungen.
+          {{ $t('download_partial_failure', { num_failed: job.result.num_failed }) }}
         </template>
       </p>
-      <p v-else-if="job.status === 'error'">Fehler: {{ job.error }}</p>
+      <p v-else-if="job.status === 'error'">{{ $t('error_prefix', { error: job.error }) }}</p>
     </template>
   </section>
 </template>

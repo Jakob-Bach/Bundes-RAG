@@ -3,6 +3,10 @@ from typing import Literal
 from pydantic import BaseModel
 
 
+class ConfigResponse(BaseModel):
+    language: str
+
+
 class DownloadRequest(BaseModel):
     prompt: str
 

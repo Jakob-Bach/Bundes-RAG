@@ -38,20 +38,23 @@ onUnmounted(stopPolling)
 
 <template>
   <section>
-    <h2>Indexieren</h2>
-    <p>
-      Zerlegt alle heruntergeladenen, noch nicht indexierten Dokumente in Textabschnitte und
-      speichert sie in der Vektordatenbank. Das kann je nach Umfang einige Zeit dauern.
-    </p>
-    <button :disabled="job && job.status === 'running'" @click="submit">Indexieren starten</button>
+    <h2>{{ $t('index_title') }}</h2>
+    <p>{{ $t('index_description') }}</p>
+    <button :disabled="job && job.status === 'running'" @click="submit">
+      {{ $t('index_submit') }}
+    </button>
     <p v-if="error">{{ error }}</p>
     <template v-if="job">
-      <p v-if="job.status === 'running'" aria-busy="true">Indexierung läuft …</p>
+      <p v-if="job.status === 'running'" aria-busy="true">{{ $t('index_running') }}</p>
       <p v-else-if="job.status === 'done'">
-        Fertig: {{ job.result.num_documents }} Dokumente, {{ job.result.num_chunks }}
-        Textabschnitte gespeichert.
+        {{
+          $t('index_done', {
+            num_documents: job.result.num_documents,
+            num_chunks: job.result.num_chunks,
+          })
+        }}
       </p>
-      <p v-else-if="job.status === 'error'">Fehler: {{ job.error }}</p>
+      <p v-else-if="job.status === 'error'">{{ $t('error_prefix', { error: job.error }) }}</p>
     </template>
   </section>
 </template>

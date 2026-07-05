@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
+from bundesrag.i18n import t
 from bundesrag.ingestion.pipeline import (
     DownloadSummary,
     IndexSummary,
@@ -53,7 +54,7 @@ def _job_response(job: Job) -> JobResponse:
 def _get_job_or_404(job_manager: JobManager, job_id: str) -> Job:
     job = job_manager.get(job_id)
     if job is None:
-        raise HTTPException(status_code=404, detail="job not found")
+        raise HTTPException(status_code=404, detail=t("job_not_found"))
     return job
 
 
@@ -128,13 +129,13 @@ def respond_to_download_job(
         try:
             int(request.answer)
         except ValueError:
-            raise HTTPException(status_code=400, detail="answer must be an integer") from None
+            raise HTTPException(status_code=400, detail=t("answer_must_be_integer")) from None
     try:
         job_manager.provide_answer(job_id, request.answer)
     except JobNotFoundError:
-        raise HTTPException(status_code=404, detail="job not found") from None
+        raise HTTPException(status_code=404, detail=t("job_not_found")) from None
     except JobNotWaitingError:
-        raise HTTPException(status_code=409, detail="job is not waiting for input") from None
+        raise HTTPException(status_code=409, detail=t("job_not_waiting")) from None
 
 
 @router.post("/index", response_model=JobResponse, status_code=202)

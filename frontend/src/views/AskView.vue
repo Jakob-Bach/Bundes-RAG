@@ -23,24 +23,24 @@ async function submit() {
 
 <template>
   <section>
-    <h2>Fragen</h2>
+    <h2>{{ $t('ask_title') }}</h2>
     <form @submit.prevent="submit">
       <label>
-        Frage zu den indexierten Dokumenten
+        {{ $t('ask_question_label') }}
         <textarea
           v-model="question"
           rows="3"
-          placeholder="Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?"
+          :placeholder="$t('ask_placeholder')"
           required
         ></textarea>
       </label>
-      <button type="submit" :disabled="busy" :aria-busy="busy">Frage stellen</button>
+      <button type="submit" :disabled="busy" :aria-busy="busy">{{ $t('ask_submit') }}</button>
     </form>
     <p v-if="error">{{ error }}</p>
     <article v-if="result">
       <p style="white-space: pre-wrap">{{ result.answer_text }}</p>
       <footer v-if="result.sources.length">
-        <strong>Quellen:</strong>
+        <strong>{{ $t('sources_header') }}</strong>
         <ul>
           <li v-for="source in result.sources" :key="source">{{ source }}</li>
         </ul>

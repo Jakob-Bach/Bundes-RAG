@@ -2,6 +2,8 @@ import pytest
 from fastapi.testclient import TestClient
 from langchain_core.documents import Document
 
+from bundesrag.config import Settings
+from bundesrag.i18n import set_language, t
 from bundesrag.web.app import create_app
 from bundesrag.web.dependencies import get_chat_llm, get_vectorstore_dep
 
@@ -60,10 +62,38 @@ def test_ask_returns_500_on_unexpected_error(client, vectorstore, chat_llm):
     assert response.json()["detail"]
 
 
+def test_config_returns_language(client, settings):
+    response = client.get("/api/config")
+
+    assert response.status_code == 200
+    assert response.json() == {"language": settings.language}
+
+
+def test_config_returns_configured_language(tmp_path, settings):
+    english_settings = Settings(
+        mistral_api_key="test-mistral-key",
+        dip_api_key="test-dip-key",
+        data_dir=tmp_path / "data",
+        language="en",
+        _env_file=None,
+    )
+    try:
+        client = TestClient(create_app(settings=english_settings))
+
+        response = client.get("/api/config")
+
+        assert response.status_code == 200
+        assert response.json() == {"language": "en"}
+    finally:
+        # create_app set the module-global language to "en"; restore it.
+        set_language(settings.language)
+
+
 def test_clear_requires_confirmation(client, vectorstore):
     response = client.post("/api/clear", json={"confirmed": False})
 
     assert response.status_code == 400
+    assert response.json()["detail"] == t("confirmation_required")
     vectorstore.delete_collection.assert_not_called()
 
 

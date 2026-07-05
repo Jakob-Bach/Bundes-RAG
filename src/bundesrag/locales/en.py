@@ -1,4 +1,5 @@
 MESSAGES = {
+    "answer_must_be_integer": "The answer must be an integer.",
     "app_help": "Download Bundestag documents and ask questions about them.",
     "ask_help": "Answers QUESTION based on the stored documents.",
     "ask_query_feedback": "What should be adjusted about the query?",
@@ -12,6 +13,7 @@ MESSAGES = {
         "Really delete all downloaded documents and reset the vector store? [y/N] "
     ),
     "confirm_use_query_yn": "Use this query? [y/N] ",
+    "confirmation_required": "Confirmation required.",
     "delete_done": "Done: {num_files} files deleted and vector store reset.",
     "document_reference": "Document/protocol {dokumentnummer}",
     "download_aborted": "Aborted: download of {count} documents cancelled.",
@@ -61,6 +63,8 @@ MESSAGES = {
     "filter_zuordnung": "  Assignment: {value}",
     "index_done": "Done: {num_documents} documents, {num_chunks} chunks stored.",
     "index_help": "Indexes previously downloaded but not yet indexed documents.",
+    "job_not_found": "Job not found.",
+    "job_not_waiting": "The job is not waiting for input.",
     "page_short": "p. {page}",
     "page_suffix": ", page {page}",
     "planned_query_header": "Planned DIP query (endpoint: {endpoint}):",

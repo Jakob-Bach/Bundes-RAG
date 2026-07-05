@@ -11,6 +11,7 @@ from bundesrag.web.schemas import (
     AskRequest,
     AskResponse,
     ClearRequest,
+    ConfigResponse,
     DeleteSummaryResponse,
     FileStatusResponse,
     StatusResponse,
@@ -19,6 +20,11 @@ from bundesrag.web.schemas import (
 router = APIRouter()
 
 logger = logging.getLogger(LOGGER_NAME)
+
+
+@router.get("/config", response_model=ConfigResponse)
+def get_config(settings: SettingsDep) -> ConfigResponse:
+    return ConfigResponse(language=settings.language)
 
 
 @router.post("/ask", response_model=AskResponse)
@@ -44,7 +50,7 @@ def clear(
     vectorstore: VectorstoreDep,
 ) -> DeleteSummaryResponse:
     if not request.confirmed:
-        raise HTTPException(status_code=400, detail="confirmation required")
+        raise HTTPException(status_code=400, detail=t("confirmation_required"))
     logger.info("web clear invoked")
     try:
         summary = run_delete_all(settings, vectorstore=vectorstore)

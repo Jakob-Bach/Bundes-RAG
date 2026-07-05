@@ -17,6 +17,10 @@ async function request(path, options = {}) {
   return response.json()
 }
 
+export function getConfig() {
+  return request('/api/config')
+}
+
 export function startDownload(prompt) {
   return request('/api/download', { method: 'POST', body: JSON.stringify({ prompt }) })
 }
