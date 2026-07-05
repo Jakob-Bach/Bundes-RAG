@@ -7,19 +7,27 @@
 
 An agentically engineered search tool for German parliamentary documentation.
 
-Bundes-RAG lets you describe, in German, which documents from the Bundestag's
-[DIP](https://dip.bundestag.de/) (Dokumentations- und Informationssystem für
-Parlamentsmaterialien) should be downloaded and indexed, and then lets you ask
-natural-language questions about them, with answers citing the source
-documents and pages.
+Bundes-RAG lets you describe, in natural language, which documents from the
+Bundestag's [DIP](https://dip.bundestag.de/) (Dokumentations- und
+Informationssystem für Parlamentsmaterialien) should be downloaded and
+indexed, and then lets you ask natural-language questions about them, with
+answers citing the source documents and pages. All user-facing output is in
+German by default; English is available via the `LANGUAGE` setting (see
+[Configuration](#configuration)).
 
 ## Requirements
 
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/) for dependency/environment management
 - API keys for:
   - [Mistral](https://console.mistral.ai/) (`MISTRAL_API_KEY`) — powers the query-building and answering agents, and document/question embeddings (has a free tier)
   - the [DIP API](https://dip.bundestag.de/über-dip/hilfe/api) (`DIP_API_KEY`) — request one via parlamentsdokumentation@bundestag.de
+- Python 3.12+ and [uv](https://docs.astral.sh/uv/) for
+  dependency/environment management
+- [Node.js](https://nodejs.org/) — only for the web interface (it builds the
+  frontend that `bundesrag serve` hosts), not for the CLI commands
+
+Alternatively, run everything via [Docker](#running-with-docker) — then only
+Docker and the API keys are needed on the host, since the image contains
+Python, the dependencies, and the pre-built frontend.
 
 ## Setup
 
@@ -28,6 +36,15 @@ uv sync
 cp .env.example .env
 # then fill in MISTRAL_API_KEY, DIP_API_KEY in .env
 uv run pre-commit install  # lint/format checks on every commit
+```
+
+To use the web interface (`bundesrag serve`), additionally build the frontend
+once (skip this if you only use the CLI):
+
+```sh
+cd frontend
+npm install
+npm run build  # writes frontend/dist, which `bundesrag serve` hosts
 ```
 
 ## Usage
@@ -41,9 +58,13 @@ uv run bundesrag download "Plenarprotokolle der 21. Wahlperiode."
 The agent turns the prompt into a DIP API query and downloads the matching
 PDFs into `data/pdfs/`. If the prompt is too ambiguous to turn into a valid
 query (e.g. no date or Wahlperiode given for a broad request), it will ask a
-clarifying question on the terminal instead of guessing. If a query matches
-an unusually large number of documents, it will ask for confirmation before
-downloading all of them.
+clarifying question on the terminal instead of guessing. The proposed query
+filters are shown for confirmation before searching; declining lets you give
+feedback that is used to refine the query. Once documents are found, you are
+asked how many of them to download: pressing Enter downloads all, a smaller
+number keeps only that many most recent documents, and `0` aborts. Documents
+whose PDF already exists locally are skipped, so repeating a query neither
+re-downloads nor re-indexes them.
 
 ```sh
 uv run bundesrag download "Drucksachen des Bundesministeriums für Forschung, Technologie und Raumfahrt seit dem 01.01.2026."
@@ -74,6 +95,15 @@ uv run bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelli
 The answer is generated only from the indexed documents, and is followed by
 a "Quellen:" list naming the source document and page for each passage used.
 
+### Check download/index status
+
+```sh
+uv run bundesrag status
+```
+
+Prints how many documents have been downloaded and how many of those are
+indexed, plus a per-file list showing which PDFs are still awaiting indexing.
+
 ### Clear all data
 
 ```sh
@@ -98,14 +128,34 @@ change the bind address, and `--reload` during development.
 
 The clarifying questions and filter/count confirmations during download work
 the same way as the CLI's interactive prompts, just rendered as web forms.
-The page is served from the pre-built frontend in `frontend/dist` (see
-[Frontend development](#frontend-development) for how to build it).
+The page is served from the pre-built frontend in `frontend/dist` — building
+it is part of [Setup](#setup). The server must run as a single process (the
+state of running download/index jobs is held in memory), so don't run it with
+multiple uvicorn workers.
+
+## Configuration
+
+All settings are read from `.env` (or environment variables). Besides the two
+required API keys, these optional settings are available (shown with their
+defaults):
+
+- `LANGUAGE=de` — language of all user-facing output (CLI, web UI, and
+  answers); `de` or `en`
+- `DATA_DIR=data` — where PDFs, the vector store, the pending-index manifest,
+  and the log file are stored
+- `CHAT_MODEL=mistral-large-latest` / `EMBEDDING_MODEL=mistral-embed` — the
+  Mistral models used for the agents and for embeddings
+- `RETRIEVAL_TOP_K=5` — number of text chunks retrieved per question
+- `CHUNK_SIZE=1000` / `CHUNK_OVERLAP=150` — text-splitting parameters used
+  during indexing
 
 ## Data storage
 
 - `data/pdfs/` — downloaded PDFs, organized by document type
 - `data/pending_index.json` — manifest of downloaded PDFs awaiting indexing
 - `data/chroma/` — the persisted vector store
+- `data/bundesrag.log` — log file; errors are detailed here (with tracebacks),
+  while the CLI/web UI only shows a generic error message
 
 All are gitignored; re-running `index` does not duplicate already-indexed
 chunks.
@@ -142,24 +192,17 @@ uv run pytest
 
 ## Frontend development
 
-The web UI source lives in `frontend/` (Vue 3 + Vite, styled with Pico.css)
-and requires [Node.js](https://nodejs.org/) — only for building or working
-on the frontend, not for running the backend. To work on it with hot-reload
-against a locally running backend:
+The web UI source lives in `frontend/` (Vue 3 + Vite, styled with Pico.css).
+To work on it with hot-reload against a locally running backend:
 
 ```sh
 uv run bundesrag serve   # backend on :8000
 cd frontend
-npm install
 npm run dev              # frontend dev server on :5173, proxies /api to :8000
 ```
 
-To produce the static build that `bundesrag serve` serves:
-
-```sh
-cd frontend
-npm run build            # writes frontend/dist
-```
+When done, rerun `npm run build` (see [Setup](#setup)) to refresh the static
+build that `bundesrag serve` hosts.
 
 ## Known limitations
 
