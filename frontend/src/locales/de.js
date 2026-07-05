@@ -43,6 +43,7 @@ export default {
   nav_index: 'Indexieren',
   nav_status: 'Status',
   no: 'Nein',
+  progress_count: '{current} von {total}',
   sources_header: 'Quellen:',
   status_file_indexed: 'indexiert',
   status_file_not_indexed: 'nicht indexiert',

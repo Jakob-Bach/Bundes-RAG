@@ -4,7 +4,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Literal
 
-from bundesrag.web.schemas import PendingInputResponse
+from bundesrag.web.schemas import JobProgressResponse, PendingInputResponse
 
 
 class JobNotFoundError(KeyError):
@@ -20,6 +20,7 @@ class Job:
     id: str
     status: Literal["running", "waiting_input", "done", "error"] = "running"
     pending: PendingInputResponse | None = None
+    progress: JobProgressResponse | None = None
     result: object | None = None
     error: str | None = None
     _answer_event: threading.Event = field(default_factory=threading.Event, repr=False)
@@ -60,6 +61,10 @@ class JobManager:
             job.status = "running"
             job.pending = None
         return answer if answer is not None else ""
+
+    def set_progress(self, job: Job, current: int, total: int) -> None:
+        with self._lock:
+            job.progress = JobProgressResponse(current=current, total=total)
 
     def provide_answer(self, job_id: str, answer: str) -> None:
         with self._lock:

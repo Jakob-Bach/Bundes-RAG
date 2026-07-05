@@ -92,6 +92,7 @@ def test_index_processes_pending_documents(client, settings, vectorstore):
 
     body = _poll_job(client, job_id, lambda b: b["status"] == "done")
     assert body["result"] == {"num_documents": 1, "num_chunks": 1}
+    assert body["progress"] == {"current": 1, "total": 1}
     vectorstore.add_documents.assert_called_once()
     assert load_pending(settings) == []
 

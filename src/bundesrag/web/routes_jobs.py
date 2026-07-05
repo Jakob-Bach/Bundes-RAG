@@ -47,7 +47,12 @@ def _job_response(job: Job) -> JobResponse:
             num_documents=job.result.num_documents, num_chunks=job.result.num_chunks
         )
     return JobResponse(
-        id=job.id, status=job.status, pending=job.pending, result=result, error=job.error
+        id=job.id,
+        status=job.status,
+        pending=job.pending,
+        progress=job.progress,
+        result=result,
+        error=job.error,
     )
 
 
@@ -105,6 +110,7 @@ def start_download(
                 ask_user=ask_user,
                 confirm_count=confirm_count,
                 confirm_filters=confirm_filters,
+                on_progress=lambda current, total: job_manager.set_progress(job, current, total),
             )
         finally:
             dip_client.close()
@@ -146,7 +152,14 @@ def start_index(
 ) -> JobResponse:
     logger.info("web index invoked")
     job = job_manager.create_job()
-    job_manager.run_in_background(job, lambda: run_index(settings, vectorstore=vectorstore))
+    job_manager.run_in_background(
+        job,
+        lambda: run_index(
+            settings,
+            vectorstore=vectorstore,
+            on_progress=lambda current, total: job_manager.set_progress(job, current, total),
+        ),
+    )
     return _job_response(job)
 
 

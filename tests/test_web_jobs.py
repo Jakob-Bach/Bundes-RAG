@@ -104,6 +104,19 @@ def test_wait_for_answer_supports_multiple_rounds(manager):
     assert received == ["Antwort 1", "Antwort 2"]
 
 
+def test_set_progress_updates_job_progress(manager):
+    job = manager.create_job()
+    assert job.progress is None
+
+    manager.set_progress(job, 0, 5)
+    assert job.progress.current == 0
+    assert job.progress.total == 5
+
+    manager.set_progress(job, 3, 5)
+    assert job.progress.current == 3
+    assert job.progress.total == 5
+
+
 def test_provide_answer_for_unknown_job_raises(manager):
     with pytest.raises(JobNotFoundError):
         manager.provide_answer("unknown", "answer")

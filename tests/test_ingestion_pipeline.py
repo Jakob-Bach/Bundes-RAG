@@ -151,6 +151,46 @@ def test_run_download_counts_documents_without_pdf_url_as_failed(settings, query
     assert pending[0].meta["id"] == "2"
 
 
+def test_run_download_reports_progress_per_document(settings, query_agent, dip_client):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+    progress = []
+
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
+        on_progress=lambda current, total: progress.append((current, total)),
+    )
+
+    assert progress == [(0, 2), (1, 2), (2, 2)]
+
+
+def test_run_download_reports_progress_for_failed_documents_too(settings, query_agent, dip_client):
+    meta_without_pdf = _drucksache_meta("1").model_copy(update={"pdf_url": None})
+    dip_client.list_drucksachen.return_value = [meta_without_pdf, _drucksache_meta("2")]
+    progress = []
+
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
+        on_progress=lambda current, total: progress.append((current, total)),
+    )
+
+    assert progress == [(0, 2), (1, 2), (2, 2)]
+
+
 def test_run_download_skips_already_downloaded_documents(settings, query_agent, dip_client):
     dip_client.list_drucksachen.return_value = [
         _drucksache_meta("1"),
@@ -316,6 +356,31 @@ def test_run_index_leaves_remaining_documents_pending_on_failure(
     pending = load_pending(settings)
     assert len(pending) == 1
     assert pending[0].meta["id"] == "2"
+
+
+def test_run_index_reports_progress_per_document(settings, query_agent, dip_client, vectorstore):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
+    )
+    progress = []
+
+    run_index(
+        settings,
+        vectorstore=vectorstore,
+        on_progress=lambda current, total: progress.append((current, total)),
+    )
+
+    assert progress == [(0, 2), (1, 2), (2, 2)]
 
 
 def test_run_index_without_pending_documents_is_a_noop(settings, vectorstore):

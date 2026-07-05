@@ -62,6 +62,15 @@ class DownloadAborted(RuntimeError):
     pass
 
 
+# Reports per-item progress of a long loop as (num_done, total).
+ProgressCallback = Callable[[int, int], None]
+
+
+def _report_progress(on_progress: ProgressCallback | None, num_done: int, total: int) -> None:
+    if on_progress is not None:
+        on_progress(num_done, total)
+
+
 def run_download(
     nl_prompt: str,
     settings: Settings,
@@ -71,6 +80,7 @@ def run_download(
     ask_user: Callable[[str], str],
     confirm_count: Callable[[int], int],
     confirm_filters: Callable[[DipQueryFilters], bool],
+    on_progress: ProgressCallback | None = None,
 ) -> DownloadSummary:
     step(1, 3, t("step_interpret_request"))
     filters = query_agent.build_query(nl_prompt, ask_user=ask_user, confirm_filters=confirm_filters)
@@ -100,25 +110,29 @@ def run_download(
 
     pending = []
     num_failed = 0
-    for meta, dest in tqdm(to_download, desc="Download"):
+    _report_progress(on_progress, 0, len(to_download))
+    for num_done, (meta, dest) in enumerate(tqdm(to_download, desc="Download"), start=1):
         pdf_url = meta.pdf_url
         if not pdf_url:
             logger.warning("no pdf_url for %s, skipping", meta.dokumentnummer)
             num_failed += 1
-            continue
-        try:
-            pdf_path = dip_client.download_pdf(pdf_url, dest)
-        except httpx.HTTPError:
-            logger.warning("download failed for %s, skipping", meta.dokumentnummer, exc_info=True)
-            num_failed += 1
-            continue
-        pending.append(
-            PendingDocument(
-                kind=filters.endpoint,
-                pdf_path=pdf_path,
-                meta=meta.model_dump(mode="json"),
-            )
-        )
+        else:
+            try:
+                pdf_path = dip_client.download_pdf(pdf_url, dest)
+            except httpx.HTTPError:
+                logger.warning(
+                    "download failed for %s, skipping", meta.dokumentnummer, exc_info=True
+                )
+                num_failed += 1
+            else:
+                pending.append(
+                    PendingDocument(
+                        kind=filters.endpoint,
+                        pdf_path=pdf_path,
+                        meta=meta.model_dump(mode="json"),
+                    )
+                )
+        _report_progress(on_progress, num_done, len(to_download))
 
     add_pending(settings, pending)
     return DownloadSummary(
@@ -126,10 +140,13 @@ def run_download(
     )
 
 
-def run_index(settings: Settings, *, vectorstore: Chroma) -> IndexSummary:
+def run_index(
+    settings: Settings, *, vectorstore: Chroma, on_progress: ProgressCallback | None = None
+) -> IndexSummary:
     pending = load_pending(settings)
     num_documents = 0
     num_chunks = 0
+    _report_progress(on_progress, 0, len(pending))
     for entry in tqdm(pending, desc="Indexieren"):
         meta = entry.resolve_meta()
         chunks = load_pdf_as_chunks(
@@ -144,6 +161,7 @@ def run_index(settings: Settings, *, vectorstore: Chroma) -> IndexSummary:
         # Remove right after each document so a crash/abort mid-run leaves only the
         # not-yet-indexed documents pending, not the whole batch.
         remove_pending(settings, entry.pdf_path)
+        _report_progress(on_progress, num_documents, len(pending))
 
     return IndexSummary(num_documents=num_documents, num_chunks=num_chunks)
 

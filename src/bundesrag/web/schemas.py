@@ -59,10 +59,18 @@ class PendingInputResponse(BaseModel):
     count: int | None = None
 
 
+class JobProgressResponse(BaseModel):
+    """Per-item progress of a running job's long loop (downloads/indexing)."""
+
+    current: int
+    total: int
+
+
 class JobResponse(BaseModel):
     id: str
     status: Literal["running", "waiting_input", "done", "error"]
     pending: PendingInputResponse | None = None
+    progress: JobProgressResponse | None = None
     result: DownloadSummaryResponse | IndexSummaryResponse | None = None
     error: str | None = None
 

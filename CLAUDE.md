@@ -158,10 +158,14 @@ there and show the user only a generic localized error message
 
 **Progress reporting** (`progress.py`): long multi-step CLI operations print
 a localized step line (German: `[Schritt n/total] <name>`) before each step;
-per-item loops (downloads, indexing) use `tqdm`.
+per-item loops (downloads, indexing) use `tqdm`. `run_download`/`run_index`
+also accept an optional `on_progress(num_done, total)` callback (called with
+`(0, total)` before the loop, then once per item, including failed ones);
+the CLI leaves it unset, the web job routes use it to store progress on the
+job so the SPA can render a `<progress>` bar while polling.
 
-**Web layer** (`src/bundesrag/web/`): purely additive over the pipelines —
-no pipeline/agent code was changed for it. `app.py: create_app` (uvicorn
+**Web layer** (`src/bundesrag/web/`): additive over the pipelines — the only
+pipeline change made for it is the optional `on_progress` callback above. `app.py: create_app` (uvicorn
 factory used by the `serve` CLI command) stores `Settings` and a `JobManager`
 on `app.state` and mounts `frontend/dist` as static files (path overridable
 via `BUNDESRAG_FRONTEND_DIST`; if missing, the API still runs). Fast
