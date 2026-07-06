@@ -190,6 +190,54 @@ image name are passed straight to it (run without arguments to see `--help`).
 uv run pytest
 ```
 
+## Technology overview
+
+### Backend (Python 3.12+, `src/bundesrag/`)
+
+- [LangChain](https://python.langchain.com/) with
+  [langchain-mistralai](https://python.langchain.com/docs/integrations/providers/mistralai/) —
+  LLM orchestration: the query-building agent (structured output), the
+  answering agent, and document/question embeddings, all backed by
+  [Mistral](https://mistral.ai/) models (`mistral-large-latest` and
+  `mistral-embed` by default)
+- [Chroma](https://www.trychroma.com/) (via `langchain-chroma`) — local,
+  persisted vector store for the document chunks
+- [langchain-text-splitters](https://pypi.org/project/langchain-text-splitters/) —
+  recursive character-based chunking of PDF text before embedding
+- [pypdf](https://pypdf.readthedocs.io/) — page-wise text extraction from the
+  downloaded PDFs (page numbers feed the answer citations)
+- [httpx](https://www.python-httpx.org/) — HTTP client for the DIP API and
+  for streaming PDF downloads
+- [Typer](https://typer.tiangolo.com/) — the `bundesrag` CLI, with
+  [tqdm](https://tqdm.github.io/) progress bars for downloads/indexing
+- [FastAPI](https://fastapi.tiangolo.com/) +
+  [uvicorn](https://www.uvicorn.org/) — the web backend serving the JSON API
+  and the built frontend
+- [pydantic-settings](https://docs.pydantic.dev/latest/concepts/pydantic_settings/)
+  (+ python-dotenv) — typed configuration loaded from `.env` (see
+  [Configuration](#configuration))
+
+### Frontend (`frontend/`)
+
+- [Vue 3](https://vuejs.org/) (Composition API) with
+  [vue-router](https://router.vuejs.org/) and
+  [vue-i18n](https://vue-i18n.intlify.dev/) — the single-page web UI and its
+  German/English localization
+- [Vite](https://vite.dev/) — build tool and hot-reloading dev server
+- [Pico.css](https://picocss.com/) — lightweight, mostly class-less styling
+
+### Development tooling
+
+- [uv](https://docs.astral.sh/uv/) — Python dependency and environment
+  management
+- [pytest](https://docs.pytest.org/) (with pytest-cov and pytest-mock) — test
+  suite; coverage is reported to Codecov
+- [Ruff](https://docs.astral.sh/ruff/) — linting and formatting, enforced via
+  [pre-commit](https://pre-commit.com/) hooks and CI (GitHub Actions)
+- [Docker](https://www.docker.com/) — multi-stage image that builds the
+  frontend and packages the CLI/server (see
+  [Running with Docker](#running-with-docker))
+
 ## Frontend development
 
 The web UI source lives in `frontend/` (Vue 3 + Vite, styled with Pico.css).
