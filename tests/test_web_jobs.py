@@ -3,7 +3,13 @@ import time
 
 import pytest
 
-from bundesrag.web.jobs import JobManager, JobNotFoundError, JobNotWaitingError
+from bundesrag.ingestion.pipeline import OperationCancelled
+from bundesrag.web.jobs import (
+    JobManager,
+    JobNotCancellableError,
+    JobNotFoundError,
+    JobNotWaitingError,
+)
 from bundesrag.web.schemas import PendingInputResponse
 
 
@@ -115,6 +121,64 @@ def test_set_progress_updates_job_progress(manager):
     manager.set_progress(job, 3, 5)
     assert job.progress.current == 3
     assert job.progress.total == 5
+
+
+def test_cancelled_worker_sets_job_status_to_cancelled(manager):
+    job = manager.create_job()
+
+    def target():
+        # Mimics a pipeline's per-item cancel check.
+        while not manager.cancel_requested(job):
+            time.sleep(0.01)
+        raise OperationCancelled("cancelled")
+
+    manager.run_in_background(job, target)
+    manager.request_cancel(job.id)
+
+    _wait_until(lambda: job.status == "cancelled")
+    assert job.error is None
+    assert job.result is None
+
+
+def test_request_cancel_unblocks_job_waiting_for_input(manager):
+    job = manager.create_job()
+
+    manager.run_in_background(
+        job,
+        lambda: manager.wait_for_answer(
+            job, PendingInputResponse(kind="ask_user", question="Welche Wahlperiode?")
+        ),
+    )
+    _wait_until(lambda: job.status == "waiting_input")
+
+    manager.request_cancel(job.id)
+
+    _wait_until(lambda: job.status == "cancelled")
+    assert job.pending is None
+
+
+def test_wait_for_answer_raises_when_cancel_was_already_requested(manager):
+    job = manager.create_job()
+    manager.request_cancel(job.id)
+
+    with pytest.raises(OperationCancelled):
+        manager.wait_for_answer(
+            job, PendingInputResponse(kind="ask_user", question="Welche Wahlperiode?")
+        )
+
+
+def test_request_cancel_for_unknown_job_raises(manager):
+    with pytest.raises(JobNotFoundError):
+        manager.request_cancel("unknown")
+
+
+def test_request_cancel_for_finished_job_raises(manager):
+    job = manager.create_job()
+    manager.run_in_background(job, lambda: "the result")
+    _wait_until(lambda: job.status == "done")
+
+    with pytest.raises(JobNotCancellableError):
+        manager.request_cancel(job.id)
 
 
 def test_provide_answer_for_unknown_job_raises(manager):

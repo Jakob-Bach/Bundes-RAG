@@ -109,22 +109,31 @@ class DipClient:
         if dest_path.exists():
             return dest_path
         dest_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._http.stream("GET", url) as response:
-            response.raise_for_status()
-            total = int(response.headers.get("content-length", 0)) or None
-            with (
-                open(dest_path, "wb") as f,
-                tqdm(
-                    total=total,
-                    unit="B",
-                    unit_scale=True,
-                    desc=dest_path.name,
-                    leave=False,
-                ) as bar,
-            ):
-                for chunk in response.iter_bytes():
-                    f.write(chunk)
-                    bar.update(len(chunk))
+        # Stream into a temp file and rename only on success, so an abort
+        # (Ctrl+C) or crash mid-download never leaves a truncated PDF that
+        # later runs would treat as already downloaded.
+        part_path = dest_path.with_name(dest_path.name + ".part")
+        try:
+            with self._http.stream("GET", url) as response:
+                response.raise_for_status()
+                total = int(response.headers.get("content-length", 0)) or None
+                with (
+                    open(part_path, "wb") as f,
+                    tqdm(
+                        total=total,
+                        unit="B",
+                        unit_scale=True,
+                        desc=dest_path.name,
+                        leave=False,
+                    ) as bar,
+                ):
+                    for chunk in response.iter_bytes():
+                        f.write(chunk)
+                        bar.update(len(chunk))
+        except BaseException:
+            part_path.unlink(missing_ok=True)
+            raise
+        part_path.replace(dest_path)
         return dest_path
 
     def close(self) -> None:

@@ -9,6 +9,7 @@ from bundesrag.ingestion import pipeline
 from bundesrag.ingestion.manifest import load_pending
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
+    OperationCancelled,
     run_delete_all,
     run_download,
     run_index,
@@ -312,6 +313,59 @@ def test_run_download_limits_to_most_recent_documents(settings, query_agent, dip
     assert pending[0].meta["id"] == "2"
 
 
+def test_run_download_cancel_keeps_completed_downloads_pending(settings, query_agent, dip_client):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+
+    with pytest.raises(OperationCancelled):
+        run_download(
+            "Drucksachen der 21. Wahlperiode.",
+            settings,
+            query_agent=query_agent,
+            dip_client=dip_client,
+            ask_user=lambda q: "",
+            confirm_count=lambda count: count,
+            confirm_filters=lambda f: True,
+            should_cancel=lambda: dip_client.download_pdf.call_count >= 1,
+        )
+
+    dip_client.download_pdf.assert_called_once()
+    pending = load_pending(settings)
+    assert [entry.meta["id"] for entry in pending] == ["1"]
+
+
+def test_run_download_interrupted_run_still_records_pending(settings, query_agent, dip_client):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+
+    def download_pdf(url, dest):
+        if "2.pdf" in url:
+            raise KeyboardInterrupt
+        return dest
+
+    dip_client.download_pdf.side_effect = download_pdf
+
+    with pytest.raises(KeyboardInterrupt):
+        run_download(
+            "Drucksachen der 21. Wahlperiode.",
+            settings,
+            query_agent=query_agent,
+            dip_client=dip_client,
+            ask_user=lambda q: "",
+            confirm_count=lambda count: count,
+            confirm_filters=lambda f: True,
+        )
+
+    # The document downloaded before the interrupt must be queued for
+    # indexing, or later runs would skip it without ever indexing it.
+    pending = load_pending(settings)
+    assert [entry.meta["id"] for entry in pending] == ["1"]
+
+
 def test_run_index_happy_path(settings, query_agent, dip_client, vectorstore):
     run_download(
         "Drucksachen der 21. Wahlperiode.",
@@ -381,6 +435,35 @@ def test_run_index_reports_progress_per_document(settings, query_agent, dip_clie
     )
 
     assert progress == [(0, 2), (1, 2), (2, 2)]
+
+
+def test_run_index_cancel_leaves_remaining_documents_pending(
+    settings, query_agent, dip_client, vectorstore
+):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda count: count,
+        confirm_filters=lambda f: True,
+    )
+
+    with pytest.raises(OperationCancelled):
+        run_index(
+            settings,
+            vectorstore=vectorstore,
+            should_cancel=lambda: vectorstore.add_documents.call_count >= 1,
+        )
+
+    vectorstore.add_documents.assert_called_once()
+    pending = load_pending(settings)
+    assert [entry.meta["id"] for entry in pending] == ["2"]
 
 
 def test_run_index_without_pending_documents_is_a_noop(settings, vectorstore):

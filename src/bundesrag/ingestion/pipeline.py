@@ -62,13 +62,26 @@ class DownloadAborted(RuntimeError):
     pass
 
 
+class OperationCancelled(RuntimeError):
+    pass
+
+
 # Reports per-item progress of a long loop as (num_done, total).
 ProgressCallback = Callable[[int, int], None]
+
+# Returns True once the user has requested that the running operation stop;
+# checked between items, so the current item still finishes first.
+CancelCheck = Callable[[], bool]
 
 
 def _report_progress(on_progress: ProgressCallback | None, num_done: int, total: int) -> None:
     if on_progress is not None:
         on_progress(num_done, total)
+
+
+def _check_cancelled(should_cancel: CancelCheck | None) -> None:
+    if should_cancel is not None and should_cancel():
+        raise OperationCancelled(t("operation_cancelled"))
 
 
 def run_download(
@@ -81,11 +94,13 @@ def run_download(
     confirm_count: Callable[[int], int],
     confirm_filters: Callable[[DipQueryFilters], bool],
     on_progress: ProgressCallback | None = None,
+    should_cancel: CancelCheck | None = None,
 ) -> DownloadSummary:
     step(1, 3, t("step_interpret_request"))
     filters = query_agent.build_query(nl_prompt, ask_user=ask_user, confirm_filters=confirm_filters)
 
     step(2, 3, t("step_search_documents"))
+    _check_cancelled(should_cancel)
     metas = _list_documents(dip_client, filters)
     if metas:
         chosen_count = confirm_count(len(metas))
@@ -111,43 +126,54 @@ def run_download(
     pending = []
     num_failed = 0
     _report_progress(on_progress, 0, len(to_download))
-    for num_done, (meta, dest) in enumerate(tqdm(to_download, desc="Download"), start=1):
-        pdf_url = meta.pdf_url
-        if not pdf_url:
-            logger.warning("no pdf_url for %s, skipping", meta.dokumentnummer)
-            num_failed += 1
-        else:
-            try:
-                pdf_path = dip_client.download_pdf(pdf_url, dest)
-            except httpx.HTTPError:
-                logger.warning(
-                    "download failed for %s, skipping", meta.dokumentnummer, exc_info=True
-                )
+    # add_pending runs in a finally so that an interrupted loop (Ctrl+C, web
+    # cancel) still queues the already-downloaded PDFs for indexing — otherwise
+    # later runs would skip them as existing without ever indexing them.
+    try:
+        for num_done, (meta, dest) in enumerate(tqdm(to_download, desc="Download"), start=1):
+            _check_cancelled(should_cancel)
+            pdf_url = meta.pdf_url
+            if not pdf_url:
+                logger.warning("no pdf_url for %s, skipping", meta.dokumentnummer)
                 num_failed += 1
             else:
-                pending.append(
-                    PendingDocument(
-                        kind=filters.endpoint,
-                        pdf_path=pdf_path,
-                        meta=meta.model_dump(mode="json"),
+                try:
+                    pdf_path = dip_client.download_pdf(pdf_url, dest)
+                except httpx.HTTPError:
+                    logger.warning(
+                        "download failed for %s, skipping", meta.dokumentnummer, exc_info=True
                     )
-                )
-        _report_progress(on_progress, num_done, len(to_download))
+                    num_failed += 1
+                else:
+                    pending.append(
+                        PendingDocument(
+                            kind=filters.endpoint,
+                            pdf_path=pdf_path,
+                            meta=meta.model_dump(mode="json"),
+                        )
+                    )
+            _report_progress(on_progress, num_done, len(to_download))
+    finally:
+        add_pending(settings, pending)
 
-    add_pending(settings, pending)
     return DownloadSummary(
         num_documents=len(pending), num_failed=num_failed, num_skipped=num_skipped
     )
 
 
 def run_index(
-    settings: Settings, *, vectorstore: Chroma, on_progress: ProgressCallback | None = None
+    settings: Settings,
+    *,
+    vectorstore: Chroma,
+    on_progress: ProgressCallback | None = None,
+    should_cancel: CancelCheck | None = None,
 ) -> IndexSummary:
     pending = load_pending(settings)
     num_documents = 0
     num_chunks = 0
     _report_progress(on_progress, 0, len(pending))
     for entry in tqdm(pending, desc="Indexieren"):
+        _check_cancelled(should_cancel)
         meta = entry.resolve_meta()
         chunks = load_pdf_as_chunks(
             entry.pdf_path,

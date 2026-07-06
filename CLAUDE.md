@@ -74,7 +74,11 @@ docstrings, runtime output is localized via i18n).
    (`num_failed`) and skipped rather than aborting the run. Each downloaded
    PDF is recorded as a `PendingDocument` in the `data/pending_index.json`
    manifest (`ingestion/manifest.py`) for the `index` command to pick up
-   later.
+   later. Aborting mid-run (Ctrl+C, web cancel) leaves no bad state: PDFs are
+   streamed to a `.part` temp file and renamed only once complete, and the
+   manifest update runs in a `finally`, so already-downloaded documents are
+   still queued for indexing instead of being skipped-but-never-indexed on
+   later runs.
 
 **`index` pipeline** (`ingestion/pipeline.py: run_index`):
 1. Reads pending entries from `ingestion/manifest.py: load_pending`.
@@ -163,9 +167,15 @@ also accept an optional `on_progress(num_done, total)` callback (called with
 `(0, total)` before the loop, then once per item, including failed ones);
 the CLI leaves it unset, the web job routes use it to store progress on the
 job so the SPA can render a `<progress>` bar while polling.
+`run_download`/`run_index` similarly accept an optional `should_cancel()`
+callback, checked between items (the current item always finishes first);
+when it returns true the pipeline raises `OperationCancelled`. The CLI
+leaves it unset — Ctrl+C fills that role there — while the web job routes
+wire it to the job's cancel flag.
 
 **Web layer** (`src/bundesrag/web/`): additive over the pipelines — the only
-pipeline change made for it is the optional `on_progress` callback above. `app.py: create_app` (uvicorn
+pipeline changes made for it are the optional `on_progress` and
+`should_cancel` callbacks above. `app.py: create_app` (uvicorn
 factory used by the `serve` CLI command) stores `Settings` and a `JobManager`
 on `app.state` and mounts `frontend/dist` as static files (path overridable
 via `BUNDESRAG_FRONTEND_DIST`; if missing, the API still runs). Fast
@@ -180,7 +190,12 @@ interactive prompts (`ask_user`/`confirm_filters`/`confirm_count`) are
 bridged to HTTP without touching `QueryAgent`: the injected callables block
 on a `threading.Event` in `JobManager.wait_for_answer`, which sets the job
 to `waiting_input`; the frontend renders the matching form and POSTs to
-`/api/download/{job_id}/respond`, unblocking the worker thread. This design
-requires running the server as a single process (the job store is an
+`/api/download/{job_id}/respond`, unblocking the worker thread. Running or
+waiting jobs can be aborted via `POST /api/download/{job_id}/cancel` /
+`POST /api/index/{job_id}/cancel` (`JobManager.request_cancel`): the cancel
+flag makes the pipeline's `should_cancel` check raise `OperationCancelled`
+(a job blocked in `wait_for_answer` is woken and raises immediately), which
+`JobManager._run` maps to the `cancelled` job status the SPA displays. This
+design requires running the server as a single process (the job store is an
 in-process dict). Web tests (`tests/test_web_*.py`) inject fakes via
 `app.dependency_overrides` on the `dependencies.py` provider functions.

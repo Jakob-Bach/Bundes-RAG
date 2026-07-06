@@ -198,3 +198,34 @@ def test_get_unknown_download_job_returns_404(client):
     response = client.get("/api/download/unknown")
 
     assert response.status_code == 404
+
+
+def test_cancel_job_waiting_for_input(client, settings, query_agent, dip_client):
+    job_id = _start(client)
+    _poll_job(client, job_id, lambda b: b["status"] == "waiting_input")
+
+    response = client.post(f"/api/download/{job_id}/cancel")
+
+    assert response.status_code == 204
+    body = _poll_job(client, job_id, lambda b: b["status"] == "cancelled")
+    assert body["pending"] is None
+    assert body["error"] is None
+    dip_client.download_pdf.assert_not_called()
+    assert load_pending(settings) == []
+
+
+def test_cancel_unknown_job_returns_404(client):
+    response = client.post("/api/download/unknown/cancel")
+
+    assert response.status_code == 404
+
+
+def test_cancel_finished_job_returns_409(client, query_agent, dip_client):
+    job_id = _start(client)
+    _poll_job(client, job_id, lambda b: b["status"] == "waiting_input")
+    client.post(f"/api/download/{job_id}/respond", json={"answer": "1"})
+    _poll_job(client, job_id, lambda b: b["status"] == "done")
+
+    response = client.post(f"/api/download/{job_id}/cancel")
+
+    assert response.status_code == 409

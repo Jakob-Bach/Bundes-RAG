@@ -1,6 +1,7 @@
 from datetime import date
 
 import httpx
+import pytest
 
 from bundesrag.dip.client import DipClient
 
@@ -108,6 +109,25 @@ def test_download_pdf_streams_to_disk(tmp_path):
 
     assert result == dest
     assert dest.read_bytes() == b"%PDF-1.4 fake content"
+
+
+def test_download_pdf_interrupted_mid_stream_leaves_no_file_behind(tmp_path):
+    def failing_stream():
+        yield b"%PDF-1.4 first chunk"
+        raise RuntimeError("connection lost")
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=failing_stream())
+
+    client = _client(httpx.MockTransport(handler))
+    dest = tmp_path / "doc.pdf"
+
+    with pytest.raises(RuntimeError):
+        client.download_pdf("https://example.org/doc.pdf", dest)
+
+    # Neither a truncated PDF (which later runs would treat as complete) nor
+    # a leftover temp file may remain.
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_download_pdf_skips_existing_file(tmp_path):

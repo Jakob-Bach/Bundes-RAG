@@ -1,3 +1,4 @@
+import threading
 import time
 from datetime import date
 
@@ -38,26 +39,26 @@ def fake_chunking(mocker):
     )
 
 
-def _seed_pending(settings) -> None:
-    meta = DocumentMeta(
-        id="1",
-        dokumentnummer="19/1",
-        datum=date(2026, 1, 5),
-        wahlperiode=21,
-        drucksachetyp="Antrag",
-        titel="Ein Titel",
-        pdf_url="https://example.org/1.pdf",
-    )
-    add_pending(
-        settings,
-        [
+def _seed_pending(settings, ids: tuple[str, ...] = ("1",)) -> None:
+    entries = []
+    for id_ in ids:
+        meta = DocumentMeta(
+            id=id_,
+            dokumentnummer=f"19/{id_}",
+            datum=date(2026, 1, 5),
+            wahlperiode=21,
+            drucksachetyp="Antrag",
+            titel="Ein Titel",
+            pdf_url=f"https://example.org/{id_}.pdf",
+        )
+        entries.append(
             PendingDocument(
                 kind="drucksache",
-                pdf_path=settings.pdf_dir / "drucksache" / "19_1.pdf",
+                pdf_path=settings.pdf_dir / "drucksache" / f"19_{id_}.pdf",
                 meta=meta.model_dump(mode="json"),
             )
-        ],
-    )
+        )
+    add_pending(settings, entries)
 
 
 def _poll_job(client, job_id, until, timeout=5.0):
@@ -106,6 +107,38 @@ def test_index_reports_error_when_vectorstore_fails(client, settings, vectorstor
     body = _poll_job(client, job_id, lambda b: b["status"] == "error")
     assert body["error"] == "boom"
     assert len(load_pending(settings)) == 1
+
+
+def test_cancel_running_index_job_leaves_remaining_documents_pending(client, settings, vectorstore):
+    _seed_pending(settings, ids=("1", "2"))
+    first_document_started = threading.Event()
+    proceed = threading.Event()
+
+    def add_documents(chunks, **kwargs):
+        first_document_started.set()
+        assert proceed.wait(timeout=5.0)
+
+    vectorstore.add_documents.side_effect = add_documents
+
+    job_id = _start(client)
+    assert first_document_started.wait(timeout=5.0)
+    # Cancel while the first document is being embedded; the second one must
+    # not be processed.
+    response = client.post(f"/api/index/{job_id}/cancel")
+    assert response.status_code == 204
+    proceed.set()
+
+    body = _poll_job(client, job_id, lambda b: b["status"] == "cancelled")
+    assert body["error"] is None
+    vectorstore.add_documents.assert_called_once()
+    pending = load_pending(settings)
+    assert [entry.meta["id"] for entry in pending] == ["2"]
+
+
+def test_cancel_unknown_index_job_returns_404(client):
+    response = client.post("/api/index/unknown/cancel")
+
+    assert response.status_code == 404
 
 
 def test_get_unknown_index_job_returns_404(client):

@@ -8,6 +8,8 @@ export default {
   ask_question_label: 'Question about the indexed documents',
   ask_submit: 'Ask question',
   ask_title: 'Ask',
+  cancel_requested: 'Cancellation requested …',
+  cancel_submit: 'Cancel',
   clear_description:
     'Deletes all downloaded PDFs, resets the vector store, and empties the list of pending ' +
     'documents. This step cannot be undone.',
@@ -41,6 +43,7 @@ export default {
   nav_index: 'Index',
   nav_status: 'Status',
   no: 'No',
+  operation_cancelled: 'Operation cancelled.',
   progress_count: '{current} of {total}',
   sources_header: 'Sources:',
   status_file_indexed: 'indexed',

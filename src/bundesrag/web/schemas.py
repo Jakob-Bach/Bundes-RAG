@@ -68,7 +68,7 @@ class JobProgressResponse(BaseModel):
 
 class JobResponse(BaseModel):
     id: str
-    status: Literal["running", "waiting_input", "done", "error"]
+    status: Literal["running", "waiting_input", "done", "error", "cancelled"]
     pending: PendingInputResponse | None = None
     progress: JobProgressResponse | None = None
     result: DownloadSummaryResponse | IndexSummaryResponse | None = None

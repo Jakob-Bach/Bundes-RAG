@@ -19,7 +19,13 @@ from bundesrag.web.dependencies import (
     SettingsDep,
     VectorstoreDep,
 )
-from bundesrag.web.jobs import Job, JobManager, JobNotFoundError, JobNotWaitingError
+from bundesrag.web.jobs import (
+    Job,
+    JobManager,
+    JobNotCancellableError,
+    JobNotFoundError,
+    JobNotWaitingError,
+)
 from bundesrag.web.schemas import (
     DownloadRequest,
     DownloadSummaryResponse,
@@ -61,6 +67,15 @@ def _get_job_or_404(job_manager: JobManager, job_id: str) -> Job:
     if job is None:
         raise HTTPException(status_code=404, detail=t("job_not_found"))
     return job
+
+
+def _cancel_job(job_manager: JobManager, job_id: str) -> None:
+    try:
+        job_manager.request_cancel(job_id)
+    except JobNotFoundError:
+        raise HTTPException(status_code=404, detail=t("job_not_found")) from None
+    except JobNotCancellableError:
+        raise HTTPException(status_code=409, detail=t("job_not_cancellable")) from None
 
 
 def _build_download_callables(job_manager: JobManager, job: Job):
@@ -111,6 +126,7 @@ def start_download(
                 confirm_count=confirm_count,
                 confirm_filters=confirm_filters,
                 on_progress=lambda current, total: job_manager.set_progress(job, current, total),
+                should_cancel=lambda: job_manager.cancel_requested(job),
             )
         finally:
             dip_client.close()
@@ -144,6 +160,11 @@ def respond_to_download_job(
         raise HTTPException(status_code=409, detail=t("job_not_waiting")) from None
 
 
+@router.post("/download/{job_id}/cancel", status_code=204)
+def cancel_download_job(job_id: str, job_manager: JobManagerDep) -> None:
+    _cancel_job(job_manager, job_id)
+
+
 @router.post("/index", response_model=JobResponse, status_code=202)
 def start_index(
     settings: SettingsDep,
@@ -158,6 +179,7 @@ def start_index(
             settings,
             vectorstore=vectorstore,
             on_progress=lambda current, total: job_manager.set_progress(job, current, total),
+            should_cancel=lambda: job_manager.cancel_requested(job),
         ),
     )
     return _job_response(job)
@@ -166,3 +188,8 @@ def start_index(
 @router.get("/index/{job_id}", response_model=JobResponse)
 def get_index_job(job_id: str, job_manager: JobManagerDep) -> JobResponse:
     return _job_response(_get_job_or_404(job_manager, job_id))
+
+
+@router.post("/index/{job_id}/cancel", status_code=204)
+def cancel_index_job(job_id: str, job_manager: JobManagerDep) -> None:
+    _cancel_job(job_manager, job_id)

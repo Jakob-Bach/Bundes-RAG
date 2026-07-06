@@ -36,12 +36,20 @@ export function respondToDownloadJob(id, answer) {
   })
 }
 
+export function cancelDownloadJob(id) {
+  return request(`/api/download/${id}/cancel`, { method: 'POST' })
+}
+
 export function startIndex() {
   return request('/api/index', { method: 'POST' })
 }
 
 export function getIndexJob(id) {
   return request(`/api/index/${id}`)
+}
+
+export function cancelIndexJob(id) {
+  return request(`/api/index/${id}/cancel`, { method: 'POST' })
 }
 
 export function ask(question) {

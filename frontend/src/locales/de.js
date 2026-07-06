@@ -9,6 +9,8 @@ export default {
   ask_question_label: 'Frage zu den indexierten Dokumenten',
   ask_submit: 'Frage stellen',
   ask_title: 'Fragen',
+  cancel_requested: 'Abbruch angefordert …',
+  cancel_submit: 'Abbrechen',
   clear_description:
     'Löscht alle heruntergeladenen PDFs, setzt die Vektordatenbank zurück und leert die ' +
     'Liste wartender Dokumente. Dieser Schritt kann nicht rückgängig gemacht werden.',
@@ -43,6 +45,7 @@ export default {
   nav_index: 'Indexieren',
   nav_status: 'Status',
   no: 'Nein',
+  operation_cancelled: 'Vorgang abgebrochen.',
   progress_count: '{current} von {total}',
   sources_header: 'Quellen:',
   status_file_indexed: 'indexiert',

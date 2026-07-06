@@ -1,12 +1,13 @@
 <script setup>
 import { onUnmounted, ref } from 'vue'
-import { getDownloadJob, respondToDownloadJob, startDownload } from '../api'
+import { cancelDownloadJob, getDownloadJob, respondToDownloadJob, startDownload } from '../api'
 
 const prompt = ref('')
 const job = ref(null)
 const error = ref(null)
 const answerText = ref('')
 const countValue = ref(0)
+const cancelRequested = ref(false)
 let timer = null
 
 function stopPolling() {
@@ -26,7 +27,7 @@ function startPolling(id) {
         countValue.value = next.pending.count
       }
       job.value = next
-      if (next.status === 'done' || next.status === 'error') stopPolling()
+      if (['done', 'error', 'cancelled'].includes(next.status)) stopPolling()
     } catch (e) {
       error.value = e.message
       stopPolling()
@@ -36,9 +37,20 @@ function startPolling(id) {
 
 async function submit() {
   error.value = null
+  cancelRequested.value = false
   try {
     job.value = await startDownload(prompt.value)
     startPolling(job.value.id)
+  } catch (e) {
+    error.value = e.message
+  }
+}
+
+async function cancel() {
+  error.value = null
+  try {
+    await cancelDownloadJob(job.value.id)
+    cancelRequested.value = true
   } catch (e) {
     error.value = e.message
   }
@@ -78,7 +90,13 @@ onUnmounted(stopPolling)
     </form>
     <p v-if="error">{{ error }}</p>
     <template v-if="job">
-      <template v-if="job.status === 'running'">
+      <p
+        v-if="cancelRequested && (job.status === 'running' || job.status === 'waiting_input')"
+        aria-busy="true"
+      >
+        {{ $t('cancel_requested') }}
+      </p>
+      <template v-else-if="job.status === 'running'">
         <p aria-busy="true">{{ $t('download_running') }}</p>
         <template v-if="job.progress && job.progress.total > 0">
           <progress :value="job.progress.current" :max="job.progress.total"></progress>
@@ -122,7 +140,16 @@ onUnmounted(stopPolling)
           {{ $t('download_partial_failure', { num_failed: job.result.num_failed }) }}
         </template>
       </p>
+      <p v-else-if="job.status === 'cancelled'">{{ $t('operation_cancelled') }}</p>
       <p v-else-if="job.status === 'error'">{{ $t('error_prefix', { error: job.error }) }}</p>
+
+      <button
+        v-if="(job.status === 'running' || job.status === 'waiting_input') && !cancelRequested"
+        class="secondary"
+        @click="cancel"
+      >
+        {{ $t('cancel_submit') }}
+      </button>
     </template>
   </section>
 </template>
