@@ -40,6 +40,7 @@ def ask(
     except Exception:
         logger.exception("web ask failed")
         raise HTTPException(status_code=500, detail=t("unexpected_error")) from None
+    logger.info("web ask succeeded: %d sources", len(result.sources))
     return AskResponse(answer_text=result.answer_text, sources=result.sources)
 
 
@@ -57,12 +58,19 @@ def clear(
     except Exception:
         logger.exception("web clear failed")
         raise HTTPException(status_code=500, detail=t("unexpected_error")) from None
+    logger.info("web clear succeeded: %d files deleted", summary.num_files)
     return DeleteSummaryResponse(num_files=summary.num_files)
 
 
 @router.get("/status", response_model=StatusResponse)
 def status(settings: SettingsDep) -> StatusResponse:
+    logger.info("web status invoked")
     summary = run_status(settings)
+    logger.info(
+        "web status succeeded: %d downloaded, %d indexed",
+        summary.num_downloaded,
+        summary.num_indexed,
+    )
     return StatusResponse(
         num_downloaded=summary.num_downloaded,
         num_indexed=summary.num_indexed,

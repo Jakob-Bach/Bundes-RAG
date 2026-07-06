@@ -4,8 +4,10 @@ from fastapi import APIRouter, HTTPException
 
 from bundesrag.i18n import t
 from bundesrag.ingestion.pipeline import (
+    DownloadAborted,
     DownloadSummary,
     IndexSummary,
+    OperationCancelled,
     run_download,
     run_index,
 )
@@ -117,7 +119,7 @@ def start_download(
 
     def target() -> DownloadSummary:
         try:
-            return run_download(
+            summary = run_download(
                 request.prompt,
                 settings,
                 query_agent=query_agent,
@@ -128,8 +130,24 @@ def start_download(
                 on_progress=lambda current, total: job_manager.set_progress(job, current, total),
                 should_cancel=lambda: job_manager.cancel_requested(job),
             )
+        except OperationCancelled:
+            logger.warning("web download cancelled")
+            raise
+        except DownloadAborted as exc:
+            logger.warning("web download aborted: %s", exc)
+            raise
+        except Exception:
+            logger.exception("web download failed")
+            raise
         finally:
             dip_client.close()
+        logger.info(
+            "web download succeeded: %d documents, %d failed, %d already downloaded",
+            summary.num_documents,
+            summary.num_failed,
+            summary.num_skipped,
+        )
+        return summary
 
     job_manager.run_in_background(job, target)
     return _job_response(job)
@@ -173,15 +191,29 @@ def start_index(
 ) -> JobResponse:
     logger.info("web index invoked")
     job = job_manager.create_job()
-    job_manager.run_in_background(
-        job,
-        lambda: run_index(
-            settings,
-            vectorstore=vectorstore,
-            on_progress=lambda current, total: job_manager.set_progress(job, current, total),
-            should_cancel=lambda: job_manager.cancel_requested(job),
-        ),
-    )
+
+    def target() -> IndexSummary:
+        try:
+            summary = run_index(
+                settings,
+                vectorstore=vectorstore,
+                on_progress=lambda current, total: job_manager.set_progress(job, current, total),
+                should_cancel=lambda: job_manager.cancel_requested(job),
+            )
+        except OperationCancelled:
+            logger.warning("web index cancelled")
+            raise
+        except Exception:
+            logger.exception("web index failed")
+            raise
+        logger.info(
+            "web index succeeded: %d documents, %d chunks",
+            summary.num_documents,
+            summary.num_chunks,
+        )
+        return summary
+
+    job_manager.run_in_background(job, target)
     return _job_response(job)
 
 

@@ -118,7 +118,6 @@ def run_download(
     for meta in metas:
         dest = settings.pdf_dir / filters.endpoint / f"{meta.dokumentnummer.replace('/', '_')}.pdf"
         if dest.exists():
-            logger.info("already downloaded %s, skipping", meta.dokumentnummer)
             num_skipped += 1
             continue
         to_download.append((meta, dest))

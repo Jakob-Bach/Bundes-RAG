@@ -158,7 +158,10 @@ when changing one of these strings, update both catalogs.
 is idempotent per log-file path and re-points the handler when the path
 changes (e.g. per-test `tmp_path`). CLI commands log details/tracebacks
 there and show the user only a generic localized error message
-(`unexpected_error`) on failure.
+(`unexpected_error`) on failure. The web endpoints and job workers log the
+same success stats and failure tracebacks as their CLI counterparts (with a
+`web ` prefix), so the log reads the same regardless of which interface ran
+the operation.
 
 **Progress reporting** (`progress.py`): long multi-step CLI operations print
 a localized step line (German: `[Schritt n/total] <name>`) before each step;
