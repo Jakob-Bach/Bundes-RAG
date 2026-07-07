@@ -9,6 +9,7 @@ from bundesrag.ingestion import pipeline
 from bundesrag.ingestion.manifest import load_pending
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
+    DownloadCounts,
     OperationCancelled,
     run_delete_all,
     run_download,
@@ -67,7 +68,7 @@ def test_run_download_happy_path(settings, query_agent, dip_client):
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
 
@@ -91,7 +92,7 @@ def test_run_download_passes_filters_to_drucksache_listing(settings, query_agent
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
 
@@ -120,7 +121,7 @@ def test_run_download_skips_documents_that_fail_to_download(settings, query_agen
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
 
@@ -141,7 +142,7 @@ def test_run_download_counts_documents_without_pdf_url_as_failed(settings, query
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
 
@@ -165,7 +166,7 @@ def test_run_download_reports_progress_per_document(settings, query_agent, dip_c
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
         on_progress=lambda current, total: progress.append((current, total)),
     )
@@ -184,7 +185,7 @@ def test_run_download_reports_progress_for_failed_documents_too(settings, query_
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
         on_progress=lambda current, total: progress.append((current, total)),
     )
@@ -200,6 +201,11 @@ def test_run_download_skips_already_downloaded_documents(settings, query_agent, 
     existing_pdf = settings.pdf_dir / "drucksache" / "19_1.pdf"
     existing_pdf.parent.mkdir(parents=True, exist_ok=True)
     existing_pdf.write_bytes(b"%PDF-1.4")
+    confirm_calls = []
+
+    def confirm_count(counts: DownloadCounts) -> int:
+        confirm_calls.append(counts)
+        return counts.num_to_download
 
     summary = run_download(
         "Drucksachen der 21. Wahlperiode.",
@@ -207,16 +213,44 @@ def test_run_download_skips_already_downloaded_documents(settings, query_agent, 
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=confirm_count,
         confirm_filters=lambda f: True,
     )
 
+    assert confirm_calls == [DownloadCounts(num_matched=2, num_existing=1, num_to_download=1)]
     assert summary.num_documents == 1
     assert summary.num_skipped == 1
     assert summary.num_failed == 0
     dip_client.download_pdf.assert_called_once()
     pending = load_pending(settings)
     assert [entry.meta["id"] for entry in pending] == ["2"]
+
+
+def test_run_download_skips_count_confirmation_when_all_documents_exist(
+    settings, query_agent, dip_client
+):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+    for name in ("19_1.pdf", "19_2.pdf"):
+        existing_pdf = settings.pdf_dir / "drucksache" / name
+        existing_pdf.parent.mkdir(parents=True, exist_ok=True)
+        existing_pdf.write_bytes(b"%PDF-1.4")
+
+    summary = run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: pytest.fail("confirm_count must not be called"),
+        confirm_filters=lambda f: True,
+    )
+
+    assert summary.num_documents == 0
+    assert summary.num_skipped == 2
+    dip_client.download_pdf.assert_not_called()
 
 
 def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_client):
@@ -240,7 +274,7 @@ def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_cl
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
 
@@ -251,9 +285,9 @@ def test_run_download_uses_plenarprotokoll_listing(settings, query_agent, dip_cl
 def test_run_download_asks_for_confirmation_every_time(settings, query_agent, dip_client):
     confirm_calls = []
 
-    def confirm_count(count: int) -> int:
-        confirm_calls.append(count)
-        return count
+    def confirm_count(counts: DownloadCounts) -> int:
+        confirm_calls.append(counts)
+        return counts.num_to_download
 
     run_download(
         "Drucksachen der 21. Wahlperiode.",
@@ -265,7 +299,7 @@ def test_run_download_asks_for_confirmation_every_time(settings, query_agent, di
         confirm_filters=lambda f: True,
     )
 
-    assert confirm_calls == [1]
+    assert confirm_calls == [DownloadCounts(num_matched=1, num_existing=0, num_to_download=1)]
 
 
 def test_run_download_aborts_when_user_enters_zero(settings, query_agent, dip_client):
@@ -276,7 +310,7 @@ def test_run_download_aborts_when_user_enters_zero(settings, query_agent, dip_cl
             query_agent=query_agent,
             dip_client=dip_client,
             ask_user=lambda q: "",
-            confirm_count=lambda count: 0,
+            confirm_count=lambda counts: 0,
             confirm_filters=lambda f: True,
         )
 
@@ -304,13 +338,50 @@ def test_run_download_limits_to_most_recent_documents(settings, query_agent, dip
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: 1,
+        confirm_count=lambda counts: 1,
         confirm_filters=lambda f: True,
     )
 
     assert summary.num_documents == 1
     pending = load_pending(settings)
     assert pending[0].meta["id"] == "2"
+
+
+def test_run_download_count_limit_applies_to_not_yet_downloaded_documents(
+    settings, query_agent, dip_client
+):
+    dip_client.list_drucksachen.return_value = [
+        DocumentMeta(
+            id=id_,
+            dokumentnummer=f"19/{id_}",
+            datum=date(2026, 1, day),
+            wahlperiode=21,
+            drucksachetyp="Antrag",
+            titel="Ein Titel",
+            pdf_url=f"https://example.org/{id_}.pdf",
+        )
+        for id_, day in (("1", 1), ("2", 10), ("3", 5))
+    ]
+    # The most recent match already exists, so the limit of 1 must pick the
+    # most recent of the remaining documents instead.
+    existing_pdf = settings.pdf_dir / "drucksache" / "19_2.pdf"
+    existing_pdf.parent.mkdir(parents=True, exist_ok=True)
+    existing_pdf.write_bytes(b"%PDF-1.4")
+
+    summary = run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: 1,
+        confirm_filters=lambda f: True,
+    )
+
+    assert summary.num_documents == 1
+    assert summary.num_skipped == 1
+    pending = load_pending(settings)
+    assert [entry.meta["id"] for entry in pending] == ["3"]
 
 
 def test_run_download_cancel_keeps_completed_downloads_pending(settings, query_agent, dip_client):
@@ -326,7 +397,7 @@ def test_run_download_cancel_keeps_completed_downloads_pending(settings, query_a
             query_agent=query_agent,
             dip_client=dip_client,
             ask_user=lambda q: "",
-            confirm_count=lambda count: count,
+            confirm_count=lambda counts: counts.num_to_download,
             confirm_filters=lambda f: True,
             should_cancel=lambda: dip_client.download_pdf.call_count >= 1,
         )
@@ -356,7 +427,7 @@ def test_run_download_interrupted_run_still_records_pending(settings, query_agen
             query_agent=query_agent,
             dip_client=dip_client,
             ask_user=lambda q: "",
-            confirm_count=lambda count: count,
+            confirm_count=lambda counts: counts.num_to_download,
             confirm_filters=lambda f: True,
         )
 
@@ -373,7 +444,7 @@ def test_run_index_happy_path(settings, query_agent, dip_client, vectorstore):
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
 
@@ -398,7 +469,7 @@ def test_run_index_leaves_remaining_documents_pending_on_failure(
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
 
@@ -423,7 +494,7 @@ def test_run_index_reports_progress_per_document(settings, query_agent, dip_clie
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
     progress = []
@@ -450,7 +521,7 @@ def test_run_index_cancel_leaves_remaining_documents_pending(
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
 
@@ -483,7 +554,7 @@ def test_run_delete_all_removes_pdfs_resets_vectorstore_and_manifest(
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
     pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
@@ -518,7 +589,7 @@ def test_run_status_reports_downloaded_and_indexed_counts(
         query_agent=query_agent,
         dip_client=dip_client,
         ask_user=lambda q: "",
-        confirm_count=lambda count: count,
+        confirm_count=lambda counts: counts.num_to_download,
         confirm_filters=lambda f: True,
     )
     for pdf_path in (

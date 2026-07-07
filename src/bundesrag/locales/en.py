@@ -5,7 +5,8 @@ MESSAGES = {
     "ask_query_feedback": "What should be adjusted about the query?",
     "clear_help": "Deletes all downloaded documents and resets the vector store.",
     "ask_download_count": (
-        "{count} documents found. How many should be downloaded "
+        "{num_matched} documents found, {num_existing} of them already downloaded. "
+        "How many of the remaining {num_to_download} should be downloaded "
         "(most recent first, Enter for all, 0 to cancel)? "
     ),
     "clear_yes_option_help": "Delete without asking for confirmation.",

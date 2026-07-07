@@ -6,7 +6,8 @@ MESSAGES = {
     "clear_help": "Löscht alle heruntergeladenen Dokumente und setzt die Vektordatenbank zurück.",
     "clear_yes_option_help": "Ohne Rückfrage löschen.",
     "ask_download_count": (
-        "{count} Dokumente gefunden. Wie viele sollen heruntergeladen werden "
+        "{num_matched} Dokumente gefunden, davon {num_existing} bereits heruntergeladen. "
+        "Wie viele der verbleibenden {num_to_download} sollen heruntergeladen werden "
         "(die neuesten zuerst, Enter für alle, 0 zum Abbrechen)? "
     ),
     "confirm_delete_all_yn": (

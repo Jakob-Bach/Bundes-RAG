@@ -24,7 +24,7 @@ function startPolling(id) {
       const next = await getDownloadJob(id)
       const wasWaiting = job.value && job.value.status === 'waiting_input'
       if (next.status === 'waiting_input' && next.pending.kind === 'confirm_count' && !wasWaiting) {
-        countValue.value = next.pending.count
+        countValue.value = next.pending.num_to_download
       }
       job.value = next
       if (['done', 'error', 'cancelled'].includes(next.status)) stopPolling()
@@ -124,9 +124,21 @@ onUnmounted(stopPolling)
       </article>
 
       <article v-else-if="job.status === 'waiting_input' && job.pending.kind === 'confirm_count'">
-        <p>{{ $t('ask_download_count', { count: job.pending.count }) }}</p>
+        <p>{{
+          $t('ask_download_count', {
+            num_matched: job.pending.num_matched,
+            num_existing: job.pending.num_existing,
+            num_to_download: job.pending.num_to_download,
+          })
+        }}</p>
         <form @submit.prevent="respond(String(countValue))">
-          <input v-model.number="countValue" type="number" min="0" :max="job.pending.count" required />
+          <input
+            v-model.number="countValue"
+            type="number"
+            min="0"
+            :max="job.pending.num_to_download"
+            required
+          />
           <button type="submit">{{ $t('count_submit') }}</button>
         </form>
       </article>

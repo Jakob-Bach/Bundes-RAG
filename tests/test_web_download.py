@@ -76,7 +76,9 @@ def test_download_happy_path(client, settings, query_agent, dip_client):
 
     body = _poll_job(client, job_id, lambda b: b["status"] == "waiting_input")
     assert body["pending"]["kind"] == "confirm_count"
-    assert body["pending"]["count"] == 1
+    assert body["pending"]["num_matched"] == 1
+    assert body["pending"]["num_existing"] == 0
+    assert body["pending"]["num_to_download"] == 1
 
     response = client.post(f"/api/download/{job_id}/respond", json={"answer": "1"})
     assert response.status_code == 204
@@ -143,7 +145,7 @@ def test_download_limits_to_most_recent_documents(client, settings, query_agent,
     job_id = _start(client)
 
     body = _poll_job(client, job_id, lambda b: b["status"] == "waiting_input")
-    assert body["pending"]["count"] == 3
+    assert body["pending"]["num_to_download"] == 3
 
     client.post(f"/api/download/{job_id}/respond", json={"answer": "2"})
 

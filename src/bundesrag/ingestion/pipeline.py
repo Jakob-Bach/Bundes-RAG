@@ -28,6 +28,15 @@ logger = logging.getLogger(__name__)
 
 
 @dataclass
+class DownloadCounts:
+    """Quantities shown in the download count confirmation dialogue."""
+
+    num_matched: int
+    num_existing: int
+    num_to_download: int
+
+
+@dataclass
 class DownloadSummary:
     num_documents: int
     num_failed: int = 0
@@ -91,7 +100,7 @@ def run_download(
     query_agent: QueryAgent,
     dip_client: DipClient,
     ask_user: Callable[[str], str],
-    confirm_count: Callable[[int], int],
+    confirm_count: Callable[[DownloadCounts], int],
     confirm_filters: Callable[[DipQueryFilters], bool],
     on_progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
@@ -102,17 +111,12 @@ def run_download(
     step(2, 3, t("step_search_documents"))
     _check_cancelled(should_cancel)
     metas = _list_documents(dip_client, filters)
-    if metas:
-        chosen_count = confirm_count(len(metas))
-        if chosen_count <= 0:
-            raise DownloadAborted(t("download_aborted", count=len(metas)))
-        if chosen_count < len(metas):
-            metas = sorted(metas, key=lambda meta: meta.datum, reverse=True)[:chosen_count]
 
-    step(3, 3, t("step_download_pdfs"))
     # Skip documents whose PDF already exists locally, so repeating a query
-    # neither re-downloads nor re-queues them for indexing; the progress bar
-    # then only covers actual downloads.
+    # neither re-downloads nor re-queues them for indexing. This happens
+    # before the count confirmation so the dialogue can report how many of
+    # the matches would actually be downloaded; the user's chosen count and
+    # the progress bar then only cover actual downloads.
     to_download = []
     num_skipped = 0
     for meta in metas:
@@ -122,6 +126,21 @@ def run_download(
             continue
         to_download.append((meta, dest))
 
+    if to_download:
+        counts = DownloadCounts(
+            num_matched=len(metas),
+            num_existing=num_skipped,
+            num_to_download=len(to_download),
+        )
+        chosen_count = confirm_count(counts)
+        if chosen_count <= 0:
+            raise DownloadAborted(t("download_aborted", count=len(to_download)))
+        if chosen_count < len(to_download):
+            to_download = sorted(to_download, key=lambda item: item[0].datum, reverse=True)[
+                :chosen_count
+            ]
+
+    step(3, 3, t("step_download_pdfs"))
     pending = []
     num_failed = 0
     _report_progress(on_progress, 0, len(to_download))

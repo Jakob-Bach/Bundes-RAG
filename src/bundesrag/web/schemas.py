@@ -56,7 +56,9 @@ class PendingInputResponse(BaseModel):
     kind: Literal["ask_user", "confirm_filters", "confirm_count"]
     question: str | None = None
     filters_text: str | None = None
-    count: int | None = None
+    num_matched: int | None = None
+    num_existing: int | None = None
+    num_to_download: int | None = None
 
 
 class JobProgressResponse(BaseModel):

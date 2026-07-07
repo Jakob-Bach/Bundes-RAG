@@ -7,6 +7,7 @@ from bundesrag.dip.client import DipClient
 from bundesrag.i18n import set_language, t, yes_no_tokens
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
+    DownloadCounts,
     run_delete_all,
     run_download,
     run_index,
@@ -56,13 +57,21 @@ def _confirm_filters(filters: DipQueryFilters) -> bool:
     return _confirm(t("confirm_use_query_yn"))
 
 
-def _confirm_count(count: int) -> int:
-    raw = typer.prompt(t("ask_download_count", count=count), default=str(count))
+def _confirm_count(counts: DownloadCounts) -> int:
+    raw = typer.prompt(
+        t(
+            "ask_download_count",
+            num_matched=counts.num_matched,
+            num_existing=counts.num_existing,
+            num_to_download=counts.num_to_download,
+        ),
+        default=str(counts.num_to_download),
+    )
     try:
         chosen = int(raw)
     except ValueError:
-        return count
-    return max(0, min(chosen, count))
+        return counts.num_to_download
+    return max(0, min(chosen, counts.num_to_download))
 
 
 @app.command(help=t("download_help"))

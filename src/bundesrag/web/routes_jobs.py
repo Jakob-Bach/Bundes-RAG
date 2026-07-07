@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from bundesrag.i18n import t
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
+    DownloadCounts,
     DownloadSummary,
     IndexSummary,
     OperationCancelled,
@@ -92,15 +93,21 @@ def _build_download_callables(job_manager: JobManager, job: Job):
         )
         return answer.strip().lower() == "true"
 
-    def confirm_count(count: int) -> int:
+    def confirm_count(counts: DownloadCounts) -> int:
         answer = job_manager.wait_for_answer(
-            job, PendingInputResponse(kind="confirm_count", count=count)
+            job,
+            PendingInputResponse(
+                kind="confirm_count",
+                num_matched=counts.num_matched,
+                num_existing=counts.num_existing,
+                num_to_download=counts.num_to_download,
+            ),
         )
         try:
             chosen = int(answer)
         except ValueError:
-            return count
-        return max(0, min(chosen, count))
+            return counts.num_to_download
+        return max(0, min(chosen, counts.num_to_download))
 
     return ask_user, confirm_filters, confirm_count
 

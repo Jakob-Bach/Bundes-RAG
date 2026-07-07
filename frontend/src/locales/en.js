@@ -3,7 +3,9 @@
 export default {
   answer_submit: 'Answer',
   ask_download_count:
-    '{count} documents found. How many should be downloaded (most recent first, 0 to cancel)?',
+    '{num_matched} documents found, {num_existing} of them already downloaded. ' +
+    'How many of the remaining {num_to_download} should be downloaded ' +
+    '(most recent first, 0 to cancel)?',
   ask_placeholder: 'Which legislative projects exist regarding artificial intelligence?',
   ask_question_label: 'Question about the indexed documents',
   ask_submit: 'Ask question',

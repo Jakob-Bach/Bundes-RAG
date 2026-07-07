@@ -3,7 +3,8 @@
 export default {
   answer_submit: 'Antworten',
   ask_download_count:
-    '{count} Dokumente gefunden. Wie viele sollen heruntergeladen werden ' +
+    '{num_matched} Dokumente gefunden, davon {num_existing} bereits heruntergeladen. ' +
+    'Wie viele der verbleibenden {num_to_download} sollen heruntergeladen werden ' +
     '(die neuesten zuerst, 0 zum Abbrechen)?',
   ask_placeholder: 'Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?',
   ask_question_label: 'Frage zu den indexierten Dokumenten',

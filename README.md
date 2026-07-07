@@ -61,10 +61,12 @@ query (e.g. no date or Wahlperiode given for a broad request), it will ask a
 clarifying question on the terminal instead of guessing. The proposed query
 filters are shown for confirmation before searching; declining lets you give
 feedback that is used to refine the query. Once documents are found, you are
-asked how many of them to download: pressing Enter downloads all, a smaller
-number keeps only that many most recent documents, and `0` aborts. Documents
-whose PDF already exists locally are skipped, so repeating a query neither
-re-downloads nor re-indexes them.
+told how many matched, how many of those already exist locally, and how many
+are new, and asked how many of the new ones to download: pressing Enter
+downloads all of them, a smaller number keeps only that many most recent
+documents, and `0` aborts. Documents whose PDF already exists locally are
+skipped (if every match already exists, the question is skipped too), so
+repeating a query neither re-downloads nor re-indexes them.
 
 ```sh
 uv run bundesrag download "Drucksachen des Bundesministeriums für Forschung, Technologie und Raumfahrt seit dem 01.01.2026."

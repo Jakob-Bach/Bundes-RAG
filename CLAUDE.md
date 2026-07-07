@@ -63,13 +63,17 @@ docstrings, runtime output is localized via i18n).
    advancing. Note `urheber`/`ressort_fdf` are repeated-value filters with AND
    semantics across distinct values in the DIP API — querying for either of
    two ministries/fractions needs two separate `download` calls.
-3. If any documents were found, the user is always asked (via an injected
-   `confirm_count` callable) how many of them to download; entering nothing
-   downloads all, entering `0` aborts (`DownloadAborted`), and entering a
-   smaller number keeps only that many, most recent (`datum`) first.
-4. Documents whose PDF already exists locally are skipped (counted as
-   `num_skipped` in the summary), so repeating a query neither re-downloads
-   nor re-queues them for indexing. The rest are downloaded into
+3. Documents whose PDF already exists locally are filtered out first (counted
+   as `num_skipped` in the summary), so repeating a query neither re-downloads
+   nor re-queues them for indexing. If any new documents remain, the user is
+   asked (via an injected `confirm_count` callable receiving a
+   `DownloadCounts` with matched / already-downloaded / to-download
+   quantities, all three shown in the dialogue) how many of the new ones to
+   download; entering nothing downloads all of them, entering `0` aborts
+   (`DownloadAborted`), and entering a smaller number keeps only that many,
+   most recent (`datum`) first. When every match already exists locally, the
+   confirmation is skipped entirely.
+4. The remaining documents are downloaded into
    `data/pdfs/<endpoint>/`; individual download failures are counted
    (`num_failed`) and skipped rather than aborting the run. Each downloaded
    PDF is recorded as a `PendingDocument` in the `data/pending_index.json`
