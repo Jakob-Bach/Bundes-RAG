@@ -30,7 +30,7 @@ export default {
   download_running: 'Verarbeitung läuft …',
   download_skipped_existing:
     'Hinweis: {num_skipped} Dokument(e) waren bereits heruntergeladen und wurden übersprungen.',
-  download_submit: 'Herunterladen starten',
+  download_submit: 'Abfrage erstellen',
   download_title: 'Herunterladen',
   error_prefix: 'Fehler: {error}',
   index_description:

@@ -29,7 +29,7 @@ export default {
   download_running: 'Processing …',
   download_skipped_existing:
     'Note: {num_skipped} document(s) were already downloaded and were skipped.',
-  download_submit: 'Start download',
+  download_submit: 'Build query',
   download_title: 'Download',
   error_prefix: 'Error: {error}',
   index_description:
