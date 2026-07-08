@@ -8,6 +8,7 @@ from bundesrag.i18n import set_language, t, yes_no_tokens
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
     DownloadCounts,
+    IndexCounts,
     run_delete_all,
     run_download,
     run_index,
@@ -55,6 +56,10 @@ def _confirm(text: str) -> bool:
 def _confirm_filters(filters: DipQueryFilters) -> bool:
     typer.echo(format_filters(filters))
     return _confirm(t("confirm_use_query_yn"))
+
+
+def _echo_index_counts(counts: IndexCounts) -> None:
+    typer.echo(t("index_counts", num_to_index=counts.num_to_index, num_indexed=counts.num_indexed))
 
 
 def _confirm_count(counts: DownloadCounts) -> int:
@@ -117,7 +122,9 @@ def index() -> None:
     settings = _init()
     logger.info("index command invoked")
     try:
-        summary = run_index(settings, vectorstore=get_vectorstore(settings))
+        summary = run_index(
+            settings, vectorstore=get_vectorstore(settings), on_counts=_echo_index_counts
+        )
     except Exception:
         logger.exception("index failed")
         typer.echo(t("unexpected_error"))

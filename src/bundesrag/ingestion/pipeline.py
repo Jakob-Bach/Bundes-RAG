@@ -44,6 +44,14 @@ class DownloadSummary:
 
 
 @dataclass
+class IndexCounts:
+    """Quantities shown when indexing starts."""
+
+    num_to_index: int
+    num_indexed: int
+
+
+@dataclass
 class IndexSummary:
     num_documents: int
     num_chunks: int
@@ -183,10 +191,18 @@ def run_index(
     settings: Settings,
     *,
     vectorstore: Chroma,
+    on_counts: Callable[[IndexCounts], None] | None = None,
     on_progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
 ) -> IndexSummary:
     pending = load_pending(settings)
+    if on_counts is not None:
+        # A downloaded PDF counts as indexed unless it is still pending, the
+        # same rule run_status uses.
+        pending_paths = {entry.pdf_path for entry in pending}
+        pdf_paths = settings.pdf_dir.rglob("*.pdf") if settings.pdf_dir.exists() else []
+        num_indexed = sum(1 for path in pdf_paths if path not in pending_paths)
+        on_counts(IndexCounts(num_to_index=len(pending), num_indexed=num_indexed))
     num_documents = 0
     num_chunks = 0
     _report_progress(on_progress, 0, len(pending))

@@ -33,6 +33,7 @@ export default {
   download_submit: 'Abfrage erstellen',
   download_title: 'Herunterladen',
   error_prefix: 'Fehler: {error}',
+  index_counts: '{num_to_index} Dokument(e) zu indexieren, {num_indexed} bereits indexiert.',
   index_description:
     'Zerlegt alle heruntergeladenen, noch nicht indexierten Dokumente in Textabschnitte und ' +
     'speichert sie in der Vektordatenbank. Das kann je nach Umfang einige Zeit dauern.',

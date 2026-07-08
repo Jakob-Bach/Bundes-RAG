@@ -9,6 +9,7 @@ from bundesrag.ingestion.pipeline import (
     DownloadAborted,
     DownloadSummary,
     FileStatus,
+    IndexCounts,
     IndexSummary,
     StatusSummary,
 )
@@ -51,14 +52,20 @@ def test_download_command_reports_abort_with_nonzero_exit(settings, mocker):
     assert "zu viele Dokumente" in result.stdout
 
 
-def test_index_command_reports_summary(settings, mocker):
+def test_index_command_reports_counts_and_summary(settings, mocker):
     mocker.patch.object(cli, "Settings", return_value=settings)
     mocker.patch.object(cli, "get_vectorstore", return_value=mocker.Mock())
-    mocker.patch.object(cli, "run_index", return_value=IndexSummary(num_documents=3, num_chunks=12))
+
+    def fake_run_index(settings, *, vectorstore, on_counts=None, **kwargs):
+        on_counts(IndexCounts(num_to_index=3, num_indexed=5))
+        return IndexSummary(num_documents=3, num_chunks=12)
+
+    mocker.patch.object(cli, "run_index", side_effect=fake_run_index)
 
     result = runner.invoke(cli.app, ["index"])
 
     assert result.exit_code == 0
+    assert "3 Dokument(e) zu indexieren, 5 bereits indexiert" in result.stdout
     assert "3 Dokumente" in result.stdout
     assert "12 Textabschnitte" in result.stdout
 

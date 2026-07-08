@@ -6,7 +6,11 @@ from typing import Literal
 
 from bundesrag.i18n import t
 from bundesrag.ingestion.pipeline import OperationCancelled
-from bundesrag.web.schemas import JobProgressResponse, PendingInputResponse
+from bundesrag.web.schemas import (
+    IndexCountsResponse,
+    JobProgressResponse,
+    PendingInputResponse,
+)
 
 
 class JobNotFoundError(KeyError):
@@ -27,6 +31,7 @@ class Job:
     status: Literal["running", "waiting_input", "done", "error", "cancelled"] = "running"
     pending: PendingInputResponse | None = None
     progress: JobProgressResponse | None = None
+    counts: IndexCountsResponse | None = None
     result: object | None = None
     error: str | None = None
     _answer_event: threading.Event = field(default_factory=threading.Event, repr=False)
@@ -79,6 +84,10 @@ class JobManager:
     def set_progress(self, job: Job, current: int, total: int) -> None:
         with self._lock:
             job.progress = JobProgressResponse(current=current, total=total)
+
+    def set_counts(self, job: Job, counts: IndexCountsResponse) -> None:
+        with self._lock:
+            job.counts = counts
 
     def provide_answer(self, job_id: str, answer: str) -> None:
         with self._lock:

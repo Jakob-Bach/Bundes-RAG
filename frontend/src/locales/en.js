@@ -32,6 +32,7 @@ export default {
   download_submit: 'Build query',
   download_title: 'Download',
   error_prefix: 'Error: {error}',
+  index_counts: '{num_to_index} document(s) to index, {num_indexed} already indexed.',
   index_description:
     'Splits all downloaded, not yet indexed documents into chunks and stores them in the ' +
     'vector store. Depending on the volume, this can take a while.',

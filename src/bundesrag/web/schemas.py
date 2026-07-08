@@ -22,6 +22,13 @@ class IndexSummaryResponse(BaseModel):
     num_chunks: int
 
 
+class IndexCountsResponse(BaseModel):
+    """Counts shown when an index job starts: pending vs. already indexed."""
+
+    num_to_index: int
+    num_indexed: int
+
+
 class DeleteSummaryResponse(BaseModel):
     num_files: int
 
@@ -73,6 +80,7 @@ class JobResponse(BaseModel):
     status: Literal["running", "waiting_input", "done", "error", "cancelled"]
     pending: PendingInputResponse | None = None
     progress: JobProgressResponse | None = None
+    counts: IndexCountsResponse | None = None
     result: DownloadSummaryResponse | IndexSummaryResponse | None = None
     error: str | None = None
 

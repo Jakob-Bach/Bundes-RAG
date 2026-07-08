@@ -85,7 +85,12 @@ docstrings, runtime output is localized via i18n).
    later runs.
 
 **`index` pipeline** (`ingestion/pipeline.py: run_index`):
-1. Reads pending entries from `ingestion/manifest.py: load_pending`.
+1. Reads pending entries from `ingestion/manifest.py: load_pending`. An
+   optional `on_counts` callback receives an `IndexCounts` (documents to
+   index vs. already indexed, the latter counted like `status` does) before
+   the loop starts; the CLI prints it as a localized line (`index_counts`),
+   the web index job stores it on the job (`counts` in the job response) so
+   the SPA shows the same text while the job runs.
 2. Each PDF is parsed page-by-page (`ingestion/pdf_loader.py`), chunked with
    `RecursiveCharacterTextSplitter`, and given deterministic ids
    (`{dokumentnummer}-p{page}-{chunk_index}`) so re-running `index` on

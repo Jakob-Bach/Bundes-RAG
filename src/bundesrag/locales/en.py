@@ -62,6 +62,7 @@ MESSAGES = {
     "filter_wahlperiode": "  Electoral term: {value}",
     "filter_zeitraum": "  Date range: {start} to {end}",
     "filter_zuordnung": "  Assignment: {value}",
+    "index_counts": "{num_to_index} document(s) to index, {num_indexed} already indexed.",
     "index_done": "Done: {num_documents} documents, {num_chunks} chunks stored.",
     "index_help": "Indexes previously downloaded but not yet indexed documents.",
     "job_not_cancellable": "The job is no longer running and cannot be cancelled.",

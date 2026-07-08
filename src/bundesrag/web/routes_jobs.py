@@ -7,6 +7,7 @@ from bundesrag.ingestion.pipeline import (
     DownloadAborted,
     DownloadCounts,
     DownloadSummary,
+    IndexCounts,
     IndexSummary,
     OperationCancelled,
     run_download,
@@ -32,6 +33,7 @@ from bundesrag.web.jobs import (
 from bundesrag.web.schemas import (
     DownloadRequest,
     DownloadSummaryResponse,
+    IndexCountsResponse,
     IndexSummaryResponse,
     JobResponse,
     PendingInputResponse,
@@ -60,9 +62,14 @@ def _job_response(job: Job) -> JobResponse:
         status=job.status,
         pending=job.pending,
         progress=job.progress,
+        counts=job.counts,
         result=result,
         error=job.error,
     )
+
+
+def _counts_response(counts: IndexCounts) -> IndexCountsResponse:
+    return IndexCountsResponse(num_to_index=counts.num_to_index, num_indexed=counts.num_indexed)
 
 
 def _get_job_or_404(job_manager: JobManager, job_id: str) -> Job:
@@ -204,6 +211,7 @@ def start_index(
             summary = run_index(
                 settings,
                 vectorstore=vectorstore,
+                on_counts=lambda counts: job_manager.set_counts(job, _counts_response(counts)),
                 on_progress=lambda current, total: job_manager.set_progress(job, current, total),
                 should_cancel=lambda: job_manager.cancel_requested(job),
             )

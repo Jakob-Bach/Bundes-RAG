@@ -88,10 +88,15 @@ def test_index_without_pending_documents(client, vectorstore):
 
 def test_index_processes_pending_documents(client, settings, vectorstore):
     _seed_pending(settings)
+    # An already-indexed PDF: on disk but not pending.
+    indexed_pdf = settings.pdf_dir / "drucksache" / "19_9.pdf"
+    indexed_pdf.parent.mkdir(parents=True, exist_ok=True)
+    indexed_pdf.write_bytes(b"%PDF-1.4")
 
     job_id = _start(client)
 
     body = _poll_job(client, job_id, lambda b: b["status"] == "done")
+    assert body["counts"] == {"num_to_index": 1, "num_indexed": 1}
     assert body["result"] == {"num_documents": 1, "num_chunks": 1}
     assert body["progress"] == {"current": 1, "total": 1}
     vectorstore.add_documents.assert_called_once()

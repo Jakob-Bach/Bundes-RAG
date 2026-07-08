@@ -63,6 +63,7 @@ MESSAGES = {
     "filter_wahlperiode": "  Wahlperiode: {value}",
     "filter_zeitraum": "  Zeitraum: {start} bis {end}",
     "filter_zuordnung": "  Zuordnung: {value}",
+    "index_counts": ("{num_to_index} Dokument(e) zu indexieren, {num_indexed} bereits indexiert."),
     "index_done": "Fertig: {num_documents} Dokumente, {num_chunks} Textabschnitte gespeichert.",
     "index_help": "Indexiert zuvor heruntergeladene, aber noch nicht indexierte Dokumente.",
     "job_not_cancellable": "Der Job läuft nicht mehr und kann nicht abgebrochen werden.",

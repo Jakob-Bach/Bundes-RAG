@@ -10,6 +10,7 @@ from bundesrag.ingestion.manifest import load_pending
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
     DownloadCounts,
+    IndexCounts,
     OperationCancelled,
     run_delete_all,
     run_download,
@@ -506,6 +507,40 @@ def test_run_index_reports_progress_per_document(settings, query_agent, dip_clie
     )
 
     assert progress == [(0, 2), (1, 2), (2, 2)]
+
+
+def test_run_index_reports_counts(settings, query_agent, dip_client, vectorstore):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+
+    # The already-indexed count only sees PDFs that exist on disk.
+    def fake_download(url, dest):
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(b"%PDF-1.4")
+        return dest
+
+    dip_client.download_pdf.side_effect = fake_download
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: counts.num_to_download,
+        confirm_filters=lambda f: True,
+    )
+    # Index the first document, then fail, so one document stays pending.
+    vectorstore.add_documents.side_effect = [None, RuntimeError("boom")]
+    with pytest.raises(RuntimeError):
+        run_index(settings, vectorstore=vectorstore)
+    vectorstore.add_documents.side_effect = None
+    counts = []
+
+    run_index(settings, vectorstore=vectorstore, on_counts=counts.append)
+
+    assert counts == [IndexCounts(num_to_index=1, num_indexed=1)]
 
 
 def test_run_index_cancel_leaves_remaining_documents_pending(

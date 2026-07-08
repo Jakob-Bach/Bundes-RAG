@@ -62,6 +62,14 @@ onUnmounted(stopPolling)
       </p>
       <template v-else-if="job.status === 'running'">
         <p aria-busy="true">{{ $t('index_running') }}</p>
+        <p v-if="job.counts">
+          {{
+            $t('index_counts', {
+              num_to_index: job.counts.num_to_index,
+              num_indexed: job.counts.num_indexed,
+            })
+          }}
+        </p>
         <template v-if="job.progress && job.progress.total > 0">
           <progress :value="job.progress.current" :max="job.progress.total"></progress>
           <small>{{
