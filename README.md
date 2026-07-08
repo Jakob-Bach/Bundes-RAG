@@ -105,6 +105,8 @@ uv run bundesrag status
 
 Prints how many documents have been downloaded and how many of those are
 indexed, plus a per-file list showing which PDFs are still awaiting indexing.
+Pending entries whose PDF was deleted manually are dropped from the manifest
+(both `status` and `index` do this), so a missing file doesn't block indexing.
 
 ### Clear all data
 

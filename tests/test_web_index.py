@@ -51,10 +51,15 @@ def _seed_pending(settings, ids: tuple[str, ...] = ("1",)) -> None:
             titel="Ein Titel",
             pdf_url=f"https://example.org/{id_}.pdf",
         )
+        # Create the PDF on disk — pending entries whose file is missing are
+        # treated as manually deleted and pruned before indexing.
+        pdf_path = settings.pdf_dir / "drucksache" / f"19_{id_}.pdf"
+        pdf_path.parent.mkdir(parents=True, exist_ok=True)
+        pdf_path.write_bytes(b"%PDF-1.4")
         entries.append(
             PendingDocument(
                 kind="drucksache",
-                pdf_path=settings.pdf_dir / "drucksache" / f"19_{id_}.pdf",
+                pdf_path=pdf_path,
                 meta=meta.model_dump(mode="json"),
             )
         )

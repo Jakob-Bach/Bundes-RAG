@@ -195,14 +195,12 @@ def run_index(
     on_progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
 ) -> IndexSummary:
-    pending = load_pending(settings)
+    # The scan prunes pending entries whose PDF was deleted manually, so the
+    # loop below only sees files that exist instead of failing on the first
+    # missing one; num_indexed is the same count the status output shows.
+    pending, status = _scan_documents(settings)
     if on_counts is not None:
-        # A downloaded PDF counts as indexed unless it is still pending, the
-        # same rule run_status uses.
-        pending_paths = {entry.pdf_path for entry in pending}
-        pdf_paths = settings.pdf_dir.rglob("*.pdf") if settings.pdf_dir.exists() else []
-        num_indexed = sum(1 for path in pdf_paths if path not in pending_paths)
-        on_counts(IndexCounts(num_to_index=len(pending), num_indexed=num_indexed))
+        on_counts(IndexCounts(num_to_index=len(pending), num_indexed=status.num_indexed))
     num_documents = 0
     num_chunks = 0
     _report_progress(on_progress, 0, len(pending))
@@ -238,12 +236,32 @@ def run_delete_all(settings: Settings, *, vectorstore: Chroma) -> DeleteSummary:
     return DeleteSummary(num_files=num_files)
 
 
-def run_status(settings: Settings) -> StatusSummary:
-    pending_paths = {entry.pdf_path for entry in load_pending(settings)}
+def _scan_documents(settings: Settings) -> tuple[list[PendingDocument], StatusSummary]:
+    """Report the pending entries and the per-file status of all PDFs on disk.
+
+    Pending entries whose PDF no longer exists on disk (deleted manually) are
+    dropped from the manifest first: they can never be indexed, and a stale
+    entry would otherwise make every `index` run fail on the missing file.
+    """
+    pending = load_pending(settings)
+    existing = [entry for entry in pending if entry.pdf_path.exists()]
+    if len(existing) < len(pending):
+        logger.info(
+            "pruned %d pending entries whose PDFs no longer exist",
+            len(pending) - len(existing),
+        )
+        save_pending(settings, existing)
+    pending_paths = {entry.pdf_path for entry in existing}
     pdf_paths = sorted(settings.pdf_dir.rglob("*.pdf")) if settings.pdf_dir.exists() else []
     files = [FileStatus(pdf_path=path, indexed=path not in pending_paths) for path in pdf_paths]
     num_indexed = sum(1 for file in files if file.indexed)
-    return StatusSummary(num_downloaded=len(files), num_indexed=num_indexed, files=files)
+    summary = StatusSummary(num_downloaded=len(files), num_indexed=num_indexed, files=files)
+    return existing, summary
+
+
+def run_status(settings: Settings) -> StatusSummary:
+    _, summary = _scan_documents(settings)
+    return summary
 
 
 def _list_documents(dip_client: DipClient, filters: DipQueryFilters) -> list[DocumentMeta]:

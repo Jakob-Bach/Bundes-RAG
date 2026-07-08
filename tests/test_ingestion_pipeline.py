@@ -39,12 +39,20 @@ def query_agent(mocker):
     return agent
 
 
+def _fake_download_pdf(url, dest):
+    # Create the file like the real download does — index/status treat a
+    # pending entry without a PDF on disk as manually deleted and prune it.
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(b"%PDF-1.4")
+    return dest
+
+
 @pytest.fixture
 def dip_client(mocker):
     client = mocker.Mock()
     client.list_drucksachen.return_value = [_drucksache_meta("1")]
     client.list_plenarprotokolle.return_value = []
-    client.download_pdf.side_effect = lambda url, dest: dest
+    client.download_pdf.side_effect = _fake_download_pdf
     return client
 
 
@@ -514,14 +522,6 @@ def test_run_index_reports_counts(settings, query_agent, dip_client, vectorstore
         _drucksache_meta("1"),
         _drucksache_meta("2"),
     ]
-
-    # The already-indexed count only sees PDFs that exist on disk.
-    def fake_download(url, dest):
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        dest.write_bytes(b"%PDF-1.4")
-        return dest
-
-    dip_client.download_pdf.side_effect = fake_download
     run_download(
         "Drucksachen der 21. Wahlperiode.",
         settings,
@@ -570,6 +570,32 @@ def test_run_index_cancel_leaves_remaining_documents_pending(
     vectorstore.add_documents.assert_called_once()
     pending = load_pending(settings)
     assert [entry.meta["id"] for entry in pending] == ["2"]
+
+
+def test_run_index_skips_pending_documents_whose_pdf_was_deleted(
+    settings, query_agent, dip_client, vectorstore
+):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: counts.num_to_download,
+        confirm_filters=lambda f: True,
+    )
+    (settings.pdf_dir / "drucksache" / "19_1.pdf").unlink()
+    counts = []
+
+    summary = run_index(settings, vectorstore=vectorstore, on_counts=counts.append)
+
+    assert summary.num_documents == 1
+    assert counts == [IndexCounts(num_to_index=1, num_indexed=0)]
+    assert load_pending(settings) == []
 
 
 def test_run_index_without_pending_documents_is_a_noop(settings, vectorstore):
@@ -644,6 +670,29 @@ def test_run_status_reports_downloaded_and_indexed_counts(
     assert summary.num_indexed == 1
     statuses = {file.pdf_path.name: file.indexed for file in summary.files}
     assert statuses == {"19_1.pdf": True, "19_2.pdf": False}
+
+
+def test_run_status_prunes_pending_entries_whose_pdf_was_deleted(settings, query_agent, dip_client):
+    dip_client.list_drucksachen.return_value = [
+        _drucksache_meta("1"),
+        _drucksache_meta("2"),
+    ]
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: counts.num_to_download,
+        confirm_filters=lambda f: True,
+    )
+    (settings.pdf_dir / "drucksache" / "19_1.pdf").unlink()
+
+    summary = run_status(settings)
+
+    assert summary.num_downloaded == 1
+    assert summary.num_indexed == 0
+    assert [entry.meta["id"] for entry in load_pending(settings)] == ["2"]
 
 
 def test_run_status_without_downloads_is_empty(settings):

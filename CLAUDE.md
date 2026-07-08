@@ -85,10 +85,13 @@ docstrings, runtime output is localized via i18n).
    later runs.
 
 **`index` pipeline** (`ingestion/pipeline.py: run_index`):
-1. Reads pending entries from `ingestion/manifest.py: load_pending`. An
+1. Gets the pending entries and a `StatusSummary` from `_scan_documents`
+   (the routine shared with `run_status`, see `status` below), which prunes
+   pending entries whose PDF was deleted manually — so the indexing loop only
+   sees files that exist instead of failing on the first missing one. An
    optional `on_counts` callback receives an `IndexCounts` (documents to
-   index vs. already indexed, the latter counted like `status` does) before
-   the loop starts; the CLI prints it as a localized line (`index_counts`),
+   index vs. already indexed, the latter taken from the status summary)
+   before the loop starts; the CLI prints it as a localized line (`index_counts`),
    the web index job stores it on the job (`counts` in the job response) so
    the SPA shows the same text while the job runs.
 2. Each PDF is parsed page-by-page (`ingestion/pdf_loader.py`), chunked with
@@ -114,10 +117,16 @@ docstrings, runtime output is localized via i18n).
    similarity score) is built from chunk metadata (`citation_for`) and
    returned alongside the answer text.
 
-**`status` pipeline** (`ingestion/pipeline.py: run_status`): lists every PDF
-under `data/pdfs/` and reports each as indexed unless it still appears in the
-`pending_index.json` manifest; the CLI prints downloaded/indexed counts plus
-a per-file list, and the web UI shows the same via `GET /api/status`.
+**`status` pipeline** (`ingestion/pipeline.py: run_status`): a thin wrapper
+around `_scan_documents`, which first prunes pending entries whose PDF no
+longer exists on disk (deleted manually) from the `pending_index.json`
+manifest — they can never be indexed, and a stale entry would otherwise make
+every `index` run fail on the missing file — then lists every PDF under
+`data/pdfs/` and reports each as indexed unless it still appears in the
+manifest; the CLI prints downloaded/indexed counts plus a per-file list, and
+the web UI shows the same via `GET /api/status`. `run_index` starts with the
+same `_scan_documents` call, using the pending entries it returns alongside
+the summary, so pruning and counting live in one place.
 
 **`clear` pipeline** (`ingestion/pipeline.py: run_delete_all`): removes every
 PDF under `data/pdfs/`, calls `vectorstore.delete_collection()` to reset the
