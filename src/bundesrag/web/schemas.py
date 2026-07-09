@@ -37,14 +37,33 @@ class ClearRequest(BaseModel):
     confirmed: bool
 
 
+class DocumentInfoResponse(BaseModel):
+    """Per-document metadata: from the vector store's chunk metadata for
+    indexed documents, from the pending manifest (page count read from the
+    PDF, no chunk count yet) for not-yet-indexed ones."""
+
+    doc_id: str | None = None
+    dokumentnummer: str | None = None
+    citation_label: str | None = None
+    datum: str | None = None
+    source_url: str | None = None
+    num_chunks: int | None = None
+    num_pages: int | None = None
+
+
 class FileStatusResponse(BaseModel):
     pdf_path: str
     indexed: bool
+    kind: str = ""
+    info: DocumentInfoResponse | None = None
 
 
 class StatusResponse(BaseModel):
     num_downloaded: int
     num_indexed: int
+    num_chunks: int
+    pdf_size_bytes: int
+    vectorstore_size_bytes: int
     files: list[FileStatusResponse]
 
 

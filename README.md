@@ -104,7 +104,14 @@ uv run bundesrag status
 ```
 
 Prints how many documents have been downloaded and how many of those are
-indexed, plus a per-file list showing which PDFs are still awaiting indexing.
+indexed, the number of chunks in the vector store, the disk usage of the
+PDFs and the vector store, plus a per-file list showing which PDFs are still
+awaiting indexing. The web UI's status page shows the same and additionally
+each file's document kind (Drucksache or Plenarprotokoll) plus per-document
+metadata (title, document number, date, page/chunk counts, DIP id, and a
+link to the source PDF) — taken from the vector store for indexed documents
+and from the download manifest for not-yet-indexed ones, whose page count is
+read from the PDF itself; the chunk count only exists after indexing.
 Pending entries whose PDF was deleted manually are dropped from the manifest
 (both `status` and `index` do this), so a missing file doesn't block indexing.
 

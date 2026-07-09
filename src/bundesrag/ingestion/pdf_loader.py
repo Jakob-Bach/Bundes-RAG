@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from langchain_core.documents import Document
@@ -5,6 +6,17 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 
 from bundesrag.dip.models import DocumentMeta
+
+logger = logging.getLogger(__name__)
+
+
+def pdf_page_count(pdf_path: Path) -> int | None:
+    """Number of pages of a PDF on disk, or None if it can't be parsed."""
+    try:
+        return len(PdfReader(pdf_path).pages)
+    except Exception:
+        logger.warning("could not read page count from %s", pdf_path, exc_info=True)
+        return None
 
 
 def citation_label(meta: DocumentMeta) -> str:

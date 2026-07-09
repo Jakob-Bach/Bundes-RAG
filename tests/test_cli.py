@@ -106,6 +106,7 @@ def test_clear_command_aborts_when_user_declines_confirmation(settings, mocker):
 
 def test_status_command_reports_counts_and_file_statuses(settings, mocker):
     mocker.patch.object(cli, "Settings", return_value=settings)
+    mocker.patch.object(cli, "get_vectorstore", return_value=mocker.Mock())
     mocker.patch.object(
         cli,
         "run_status",
@@ -116,6 +117,9 @@ def test_status_command_reports_counts_and_file_statuses(settings, mocker):
                 FileStatus(pdf_path=settings.pdf_dir / "drucksache" / "19_1.pdf", indexed=True),
                 FileStatus(pdf_path=settings.pdf_dir / "drucksache" / "19_2.pdf", indexed=False),
             ],
+            num_chunks=12,
+            pdf_size_bytes=2048,
+            vectorstore_size_bytes=512,
         ),
     )
 
@@ -124,6 +128,9 @@ def test_status_command_reports_counts_and_file_statuses(settings, mocker):
     assert result.exit_code == 0
     assert "Heruntergeladen: 2" in result.stdout
     assert "Indexiert: 1" in result.stdout
+    assert "Textabschnitte in der Vektordatenbank: 12" in result.stdout
+    assert "Speicherplatz PDFs: 2.0 KB" in result.stdout
+    assert "Speicherplatz Vektordatenbank: 512 B" in result.stdout
     assert "19_1.pdf" in result.stdout
     assert "19_2.pdf" in result.stdout
 

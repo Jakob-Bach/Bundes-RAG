@@ -3,10 +3,11 @@ from datetime import date
 import httpx
 import pytest
 from langchain_core.documents import Document
+from pypdf import PdfWriter
 
 from bundesrag.dip.models import DocumentMeta
 from bundesrag.ingestion import pipeline
-from bundesrag.ingestion.manifest import load_pending
+from bundesrag.ingestion.manifest import PendingDocument, add_pending, load_pending
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
     DownloadCounts,
@@ -58,7 +59,9 @@ def dip_client(mocker):
 
 @pytest.fixture
 def vectorstore(mocker):
-    return mocker.Mock()
+    store = mocker.Mock()
+    store.get.return_value = {"ids": [], "metadatas": []}
+    return store
 
 
 @pytest.fixture(autouse=True)
@@ -664,7 +667,7 @@ def test_run_status_reports_downloaded_and_indexed_counts(
     with pytest.raises(RuntimeError):
         run_index(settings, vectorstore=vectorstore)
 
-    summary = run_status(settings)
+    summary = run_status(settings, vectorstore=vectorstore)
 
     assert summary.num_downloaded == 2
     assert summary.num_indexed == 1
@@ -672,7 +675,116 @@ def test_run_status_reports_downloaded_and_indexed_counts(
     assert statuses == {"19_1.pdf": True, "19_2.pdf": False}
 
 
-def test_run_status_prunes_pending_entries_whose_pdf_was_deleted(settings, query_agent, dip_client):
+def test_run_status_reports_sizes_chunk_count_and_per_document_metadata(settings, vectorstore):
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4")
+    settings.chroma_dir.mkdir(parents=True, exist_ok=True)
+    (settings.chroma_dir / "chroma.sqlite3").write_bytes(b"0" * 10)
+
+    def chunk_meta(page, chunk_index):
+        return {
+            "id": f"19/1-p{page}-{chunk_index}",
+            "doc_id": "1",
+            "dokumentnummer": "19/1",
+            "citation_label": "Ein Titel",
+            "datum": "2026-01-05",
+            "page": page,
+            "pdf_path": str(pdf_path),
+            "source_url": "https://example.org/1.pdf",
+        }
+
+    metadatas = [chunk_meta(1, 0), chunk_meta(1, 1), chunk_meta(2, 0)]
+    vectorstore.get.return_value = {
+        "ids": [meta["id"] for meta in metadatas],
+        "metadatas": metadatas,
+    }
+
+    summary = run_status(settings, vectorstore=vectorstore)
+
+    assert summary.num_chunks == 3
+    assert summary.pdf_size_bytes == len(b"%PDF-1.4")
+    assert summary.vectorstore_size_bytes == 10
+    assert summary.files[0].kind == "drucksache"
+    info = summary.files[0].info
+    assert info is not None
+    assert info.doc_id == "1"
+    assert info.dokumentnummer == "19/1"
+    assert info.citation_label == "Ein Titel"
+    assert info.datum == "2026-01-05"
+    assert info.source_url == "https://example.org/1.pdf"
+    assert info.num_chunks == 3
+    assert info.num_pages == 2
+
+
+def test_run_status_leaves_info_empty_when_neither_indexed_nor_pending(settings, vectorstore):
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4")
+
+    summary = run_status(settings, vectorstore=vectorstore)
+
+    assert summary.num_chunks == 0
+    assert summary.files[0].info is None
+
+
+def test_run_status_reports_pending_document_info_from_manifest(settings, vectorstore):
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    writer = PdfWriter()
+    writer.add_blank_page(width=72, height=72)
+    writer.add_blank_page(width=72, height=72)
+    with pdf_path.open("wb") as stream:
+        writer.write(stream)
+    add_pending(
+        settings,
+        [
+            PendingDocument(
+                kind="drucksache",
+                pdf_path=pdf_path,
+                meta=_drucksache_meta("1").model_dump(mode="json"),
+            )
+        ],
+    )
+
+    summary = run_status(settings, vectorstore=vectorstore)
+
+    file = summary.files[0]
+    assert file.indexed is False
+    assert file.info is not None
+    assert file.info.doc_id == "1"
+    assert file.info.dokumentnummer == "19/1"
+    assert file.info.citation_label == "Ein Titel"
+    assert file.info.datum == "2026-01-05"
+    assert file.info.source_url == "https://example.org/1.pdf"
+    assert file.info.num_chunks is None
+    assert file.info.num_pages == 2
+
+
+def test_run_status_tolerates_unparseable_pdf_for_pending_page_count(settings, vectorstore):
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4 truncated")
+    add_pending(
+        settings,
+        [
+            PendingDocument(
+                kind="drucksache",
+                pdf_path=pdf_path,
+                meta=_drucksache_meta("1").model_dump(mode="json"),
+            )
+        ],
+    )
+
+    summary = run_status(settings, vectorstore=vectorstore)
+
+    assert summary.files[0].info is not None
+    assert summary.files[0].info.num_pages is None
+
+
+def test_run_status_prunes_pending_entries_whose_pdf_was_deleted(
+    settings, query_agent, dip_client, vectorstore
+):
     dip_client.list_drucksachen.return_value = [
         _drucksache_meta("1"),
         _drucksache_meta("2"),
@@ -688,16 +800,19 @@ def test_run_status_prunes_pending_entries_whose_pdf_was_deleted(settings, query
     )
     (settings.pdf_dir / "drucksache" / "19_1.pdf").unlink()
 
-    summary = run_status(settings)
+    summary = run_status(settings, vectorstore=vectorstore)
 
     assert summary.num_downloaded == 1
     assert summary.num_indexed == 0
     assert [entry.meta["id"] for entry in load_pending(settings)] == ["2"]
 
 
-def test_run_status_without_downloads_is_empty(settings):
-    summary = run_status(settings)
+def test_run_status_without_downloads_is_empty(settings, vectorstore):
+    summary = run_status(settings, vectorstore=vectorstore)
 
     assert summary.num_downloaded == 0
     assert summary.num_indexed == 0
     assert summary.files == []
+    assert summary.num_chunks == 0
+    assert summary.pdf_size_bytes == 0
+    assert summary.vectorstore_size_bytes == 0

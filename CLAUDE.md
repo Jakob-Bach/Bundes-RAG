@@ -117,16 +117,33 @@ docstrings, runtime output is localized via i18n).
    similarity score) is built from chunk metadata (`citation_for`) and
    returned alongside the answer text.
 
-**`status` pipeline** (`ingestion/pipeline.py: run_status`): a thin wrapper
-around `_scan_documents`, which first prunes pending entries whose PDF no
-longer exists on disk (deleted manually) from the `pending_index.json`
-manifest — they can never be indexed, and a stale entry would otherwise make
-every `index` run fail on the missing file — then lists every PDF under
+**`status` pipeline** (`ingestion/pipeline.py: run_status`): wraps
+`_scan_documents`, which first prunes pending entries whose PDF no longer
+exists on disk (deleted manually) from the `pending_index.json` manifest —
+they can never be indexed, and a stale entry would otherwise make every
+`index` run fail on the missing file — then lists every PDF under
 `data/pdfs/` and reports each as indexed unless it still appears in the
-manifest; the CLI prints downloaded/indexed counts plus a per-file list, and
-the web UI shows the same via `GET /api/status`. `run_index` starts with the
-same `_scan_documents` call, using the pending entries it returns alongside
-the summary, so pruning and counting live in one place.
+manifest. On top of that, `run_status` (which, unlike `_scan_documents`,
+takes the vectorstore as an argument) reads all chunk metadata from the
+Chroma collection to add the total chunk count and the disk usage of
+`data/pdfs/` and the Chroma directory, and attaches per-document metadata
+(`DocumentInfo` on `FileStatus.info`: doc id, dokumentnummer, title, date,
+source URL, chunk/page counts, matched to files by PDF path): for indexed
+documents it's aggregated from the chunk metadata (the document-level
+fields are identical across a document's chunks; pages/chunks are counted),
+for not-yet-indexed ones it comes from the pending manifest — which stores
+the full DIP record — with the page count read from the PDF itself
+(`pdf_loader.pdf_page_count`, None if unparseable) and `num_chunks` None,
+since chunks only exist after indexing. The CLI prints the high-level stats
+(downloaded/indexed counts, chunk count, both disk usages) and the plain
+per-file list; the web UI (`GET /api/status`) shows the same stats and a
+per-file table that also includes each file's document kind
+(`FileStatus.kind`, read back from its endpoint subdirectory under
+`data/pdfs/` — file names alone can collide across endpoints, e.g.
+Drucksache and BT-Plenarprotokoll 21/5 are both `21_5.pdf`) and the
+per-document metadata. `run_index` starts with the same `_scan_documents`
+call, using the pending entries it returns alongside the summary, so
+pruning and counting live in one place.
 
 **`clear` pipeline** (`ingestion/pipeline.py: run_delete_all`): removes every
 PDF under `data/pdfs/`, calls `vectorstore.delete_collection()` to reset the

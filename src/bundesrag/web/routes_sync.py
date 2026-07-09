@@ -13,6 +13,7 @@ from bundesrag.web.schemas import (
     ClearRequest,
     ConfigResponse,
     DeleteSummaryResponse,
+    DocumentInfoResponse,
     FileStatusResponse,
     StatusResponse,
 )
@@ -63,19 +64,44 @@ def clear(
 
 
 @router.get("/status", response_model=StatusResponse)
-def status(settings: SettingsDep) -> StatusResponse:
+def status(settings: SettingsDep, vectorstore: VectorstoreDep) -> StatusResponse:
     logger.info("web status invoked")
-    summary = run_status(settings)
+    try:
+        summary = run_status(settings, vectorstore=vectorstore)
+    except Exception:
+        logger.exception("web status failed")
+        raise HTTPException(status_code=500, detail=t("unexpected_error")) from None
     logger.info(
-        "web status succeeded: %d downloaded, %d indexed",
+        "web status succeeded: %d downloaded, %d indexed, %d chunks",
         summary.num_downloaded,
         summary.num_indexed,
+        summary.num_chunks,
     )
     return StatusResponse(
         num_downloaded=summary.num_downloaded,
         num_indexed=summary.num_indexed,
+        num_chunks=summary.num_chunks,
+        pdf_size_bytes=summary.pdf_size_bytes,
+        vectorstore_size_bytes=summary.vectorstore_size_bytes,
         files=[
-            FileStatusResponse(pdf_path=str(file.pdf_path), indexed=file.indexed)
+            FileStatusResponse(
+                pdf_path=str(file.pdf_path),
+                indexed=file.indexed,
+                kind=file.kind,
+                info=(
+                    DocumentInfoResponse(
+                        doc_id=file.info.doc_id,
+                        dokumentnummer=file.info.dokumentnummer,
+                        citation_label=file.info.citation_label,
+                        datum=file.info.datum,
+                        source_url=file.info.source_url,
+                        num_chunks=file.info.num_chunks,
+                        num_pages=file.info.num_pages,
+                    )
+                    if file.info
+                    else None
+                ),
+            )
             for file in summary.files
         ],
     )

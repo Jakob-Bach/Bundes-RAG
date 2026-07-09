@@ -154,18 +154,36 @@ def clear(
     typer.echo(t("delete_done", num_files=summary.num_files))
 
 
+def _format_size(num_bytes: int) -> str:
+    value = float(num_bytes)
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if value < 1024 or unit == "TB":
+            break
+        value /= 1024
+    return f"{value:.0f} {unit}" if unit == "B" else f"{value:.1f} {unit}"
+
+
 @app.command(help=t("status_help"))
 def status() -> None:
     settings = _init()
     logger.info("status command invoked")
-    summary = run_status(settings)
+    try:
+        summary = run_status(settings, vectorstore=get_vectorstore(settings))
+    except Exception:
+        logger.exception("status failed")
+        typer.echo(t("unexpected_error"))
+        raise typer.Exit(code=1) from None
     logger.info(
-        "status succeeded: %d downloaded, %d indexed",
+        "status succeeded: %d downloaded, %d indexed, %d chunks",
         summary.num_downloaded,
         summary.num_indexed,
+        summary.num_chunks,
     )
     typer.echo(t("status_num_downloaded", count=summary.num_downloaded))
     typer.echo(t("status_num_indexed", count=summary.num_indexed))
+    typer.echo(t("status_num_chunks", count=summary.num_chunks))
+    typer.echo(t("status_pdf_size", size=_format_size(summary.pdf_size_bytes)))
+    typer.echo(t("status_vectorstore_size", size=_format_size(summary.vectorstore_size_bytes)))
     typer.echo(t("status_files_header"))
     for file in summary.files:
         status_label = t("status_file_indexed") if file.indexed else t("status_file_not_indexed")

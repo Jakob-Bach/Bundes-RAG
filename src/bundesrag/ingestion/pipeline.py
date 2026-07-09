@@ -18,7 +18,7 @@ from bundesrag.ingestion.manifest import (
     remove_pending,
     save_pending,
 )
-from bundesrag.ingestion.pdf_loader import load_pdf_as_chunks
+from bundesrag.ingestion.pdf_loader import citation_label, load_pdf_as_chunks, pdf_page_count
 from bundesrag.progress import step
 from bundesrag.query_agent.agent import QueryAgent
 from bundesrag.query_agent.schema import DipQueryFilters
@@ -63,9 +63,34 @@ class DeleteSummary:
 
 
 @dataclass
+class DocumentInfo:
+    """Per-document metadata shown in the status output.
+
+    For indexed documents this is aggregated from the chunk metadata in the
+    vector store (all chunks of a document share the document-level fields;
+    `page` and the chunk id vary per chunk and are aggregated into counts).
+    For not-yet-indexed documents it comes from the pending manifest, with
+    the page count read from the PDF itself and `num_chunks` left None —
+    chunks only exist after indexing.
+    """
+
+    doc_id: str | None
+    dokumentnummer: str | None
+    citation_label: str | None
+    datum: str | None
+    source_url: str | None
+    num_chunks: int | None
+    num_pages: int | None
+
+
+@dataclass
 class FileStatus:
     pdf_path: Path
     indexed: bool
+    # The DIP endpoint the document came from ("drucksache" /
+    # "plenarprotokoll"), read back from its subdirectory under pdf_dir.
+    kind: str = ""
+    info: DocumentInfo | None = None
 
 
 @dataclass
@@ -73,6 +98,9 @@ class StatusSummary:
     num_downloaded: int
     num_indexed: int
     files: list[FileStatus]
+    num_chunks: int = 0
+    pdf_size_bytes: int = 0
+    vectorstore_size_bytes: int = 0
 
 
 class DownloadAborted(RuntimeError):
@@ -236,6 +264,13 @@ def run_delete_all(settings: Settings, *, vectorstore: Chroma) -> DeleteSummary:
     return DeleteSummary(num_files=num_files)
 
 
+def _document_kind(pdf_path: Path, pdf_dir: Path) -> str:
+    # PDFs are stored under pdf_dir/<endpoint>/, so the first path component
+    # below pdf_dir is the endpoint the document was downloaded from.
+    parts = pdf_path.relative_to(pdf_dir).parts
+    return parts[0] if len(parts) > 1 else ""
+
+
 def _scan_documents(settings: Settings) -> tuple[list[PendingDocument], StatusSummary]:
     """Report the pending entries and the per-file status of all PDFs on disk.
 
@@ -253,14 +288,88 @@ def _scan_documents(settings: Settings) -> tuple[list[PendingDocument], StatusSu
         save_pending(settings, existing)
     pending_paths = {entry.pdf_path for entry in existing}
     pdf_paths = sorted(settings.pdf_dir.rglob("*.pdf")) if settings.pdf_dir.exists() else []
-    files = [FileStatus(pdf_path=path, indexed=path not in pending_paths) for path in pdf_paths]
+    files = [
+        FileStatus(
+            pdf_path=path,
+            indexed=path not in pending_paths,
+            kind=_document_kind(path, settings.pdf_dir),
+        )
+        for path in pdf_paths
+    ]
     num_indexed = sum(1 for file in files if file.indexed)
     summary = StatusSummary(num_downloaded=len(files), num_indexed=num_indexed, files=files)
     return existing, summary
 
 
-def run_status(settings: Settings) -> StatusSummary:
-    _, summary = _scan_documents(settings)
+def _dir_size_bytes(path: Path) -> int:
+    if not path.exists():
+        return 0
+    return sum(entry.stat().st_size for entry in path.rglob("*") if entry.is_file())
+
+
+# Chunk metadata is fetched from Chroma in batches: an unbounded get() on a
+# large collection fails with "too many SQL variables" (one variable per
+# fetched record in Chroma's SQLite layer, which allows at most ~32k).
+_CHUNK_FETCH_BATCH_SIZE = 5000
+
+
+def _collect_index_info(vectorstore: Chroma) -> tuple[int, dict[Path, DocumentInfo]]:
+    """Fetch all chunk metadata and aggregate it per document (keyed by PDF path)."""
+    metadatas: list[dict] = []
+    offset = 0
+    while True:
+        data = vectorstore.get(include=["metadatas"], limit=_CHUNK_FETCH_BATCH_SIZE, offset=offset)
+        batch = data.get("metadatas") or []
+        metadatas.extend(batch)
+        if len(batch) < _CHUNK_FETCH_BATCH_SIZE:
+            break
+        offset += _CHUNK_FETCH_BATCH_SIZE
+    chunks_by_path: dict[Path, list[dict]] = {}
+    for metadata in metadatas:
+        pdf_path = metadata.get("pdf_path")
+        if pdf_path:
+            chunks_by_path.setdefault(Path(pdf_path), []).append(metadata)
+    info_by_path = {
+        path: DocumentInfo(
+            doc_id=chunks[0].get("doc_id"),
+            dokumentnummer=chunks[0].get("dokumentnummer"),
+            citation_label=chunks[0].get("citation_label"),
+            datum=chunks[0].get("datum"),
+            source_url=chunks[0].get("source_url"),
+            num_chunks=len(chunks),
+            num_pages=len({chunk.get("page") for chunk in chunks}),
+        )
+        for path, chunks in chunks_by_path.items()
+    }
+    return len(metadatas), info_by_path
+
+
+def _pending_document_info(entry: PendingDocument) -> DocumentInfo:
+    meta = entry.resolve_meta()
+    return DocumentInfo(
+        doc_id=meta.id,
+        dokumentnummer=meta.dokumentnummer,
+        citation_label=citation_label(meta),
+        datum=meta.datum.isoformat(),
+        source_url=meta.pdf_url,
+        num_chunks=None,
+        num_pages=pdf_page_count(entry.pdf_path),
+    )
+
+
+def run_status(settings: Settings, *, vectorstore: Chroma) -> StatusSummary:
+    pending, summary = _scan_documents(settings)
+    summary.num_chunks, info_by_path = _collect_index_info(vectorstore)
+    # Not-yet-indexed documents have no (complete) chunk metadata in the
+    # vector store; their info comes from the pending manifest instead, which
+    # stores the full DIP record. It overrides any partial chunk data so the
+    # info source always matches the file's indexed/not-indexed status.
+    for entry in pending:
+        info_by_path[entry.pdf_path] = _pending_document_info(entry)
+    for file in summary.files:
+        file.info = info_by_path.get(file.pdf_path)
+    summary.pdf_size_bytes = _dir_size_bytes(settings.pdf_dir)
+    summary.vectorstore_size_bytes = _dir_size_bytes(settings.chroma_dir)
     return summary
 
 

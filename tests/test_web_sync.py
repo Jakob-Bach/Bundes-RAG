@@ -1,9 +1,11 @@
 import pytest
 from fastapi.testclient import TestClient
 from langchain_core.documents import Document
+from pypdf import PdfWriter
 
 from bundesrag.config import Settings
 from bundesrag.i18n import set_language, t
+from bundesrag.ingestion.manifest import PendingDocument, add_pending
 from bundesrag.web.app import create_app
 from bundesrag.web.dependencies import get_chat_llm, get_vectorstore_dep
 
@@ -21,6 +23,7 @@ def client(app):
 @pytest.fixture
 def vectorstore(app, mocker):
     store = mocker.Mock()
+    store.get.return_value = {"ids": [], "metadatas": []}
     app.dependency_overrides[get_vectorstore_dep] = lambda: store
     return store
 
@@ -110,17 +113,35 @@ def test_clear_deletes_when_confirmed(client, settings, vectorstore):
     vectorstore.delete_collection.assert_called_once()
 
 
-def test_status_without_downloads_is_empty(client):
+def test_status_without_downloads_is_empty(client, vectorstore):
     response = client.get("/api/status")
 
     assert response.status_code == 200
-    assert response.json() == {"num_downloaded": 0, "num_indexed": 0, "files": []}
+    assert response.json() == {
+        "num_downloaded": 0,
+        "num_indexed": 0,
+        "num_chunks": 0,
+        "pdf_size_bytes": 0,
+        "vectorstore_size_bytes": 0,
+        "files": [],
+    }
 
 
-def test_status_reports_downloaded_files(client, settings):
+def test_status_reports_downloaded_files_with_document_info(client, settings, vectorstore):
     pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
     pdf_path.parent.mkdir(parents=True, exist_ok=True)
     pdf_path.write_bytes(b"%PDF-1.4")
+    chunk_meta = {
+        "id": "19/1-p1-0",
+        "doc_id": "1",
+        "dokumentnummer": "19/1",
+        "citation_label": "Ein Titel",
+        "datum": "2026-01-05",
+        "page": 1,
+        "pdf_path": str(pdf_path),
+        "source_url": "https://example.org/1.pdf",
+    }
+    vectorstore.get.return_value = {"ids": [chunk_meta["id"]], "metadatas": [chunk_meta]}
 
     response = client.get("/api/status")
 
@@ -128,5 +149,67 @@ def test_status_reports_downloaded_files(client, settings):
     body = response.json()
     assert body["num_downloaded"] == 1
     assert body["num_indexed"] == 1
+    assert body["num_chunks"] == 1
+    assert body["pdf_size_bytes"] == len(b"%PDF-1.4")
     assert body["files"][0]["pdf_path"].endswith("19_1.pdf")
     assert body["files"][0]["indexed"] is True
+    assert body["files"][0]["kind"] == "drucksache"
+    assert body["files"][0]["info"] == {
+        "doc_id": "1",
+        "dokumentnummer": "19/1",
+        "citation_label": "Ein Titel",
+        "datum": "2026-01-05",
+        "source_url": "https://example.org/1.pdf",
+        "num_chunks": 1,
+        "num_pages": 1,
+    }
+
+
+def test_status_reports_pending_document_info_from_manifest(client, settings, vectorstore):
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    writer = PdfWriter()
+    writer.add_blank_page(width=72, height=72)
+    with pdf_path.open("wb") as stream:
+        writer.write(stream)
+    add_pending(
+        settings,
+        [
+            PendingDocument(
+                kind="drucksache",
+                pdf_path=pdf_path,
+                meta={
+                    "id": "1",
+                    "dokumentnummer": "19/1",
+                    "datum": "2026-01-05",
+                    "wahlperiode": 21,
+                    "titel": "Ein Titel",
+                    "pdf_url": "https://example.org/1.pdf",
+                },
+            )
+        ],
+    )
+
+    response = client.get("/api/status")
+
+    assert response.status_code == 200
+    file = response.json()["files"][0]
+    assert file["indexed"] is False
+    assert file["info"] == {
+        "doc_id": "1",
+        "dokumentnummer": "19/1",
+        "citation_label": "Ein Titel",
+        "datum": "2026-01-05",
+        "source_url": "https://example.org/1.pdf",
+        "num_chunks": None,
+        "num_pages": 1,
+    }
+
+
+def test_status_returns_500_on_unexpected_error(client, vectorstore):
+    vectorstore.get.side_effect = RuntimeError("boom")
+
+    response = client.get("/api/status")
+
+    assert response.status_code == 500
+    assert response.json()["detail"]
