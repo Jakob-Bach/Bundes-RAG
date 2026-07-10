@@ -37,6 +37,13 @@ class ClearRequest(BaseModel):
     confirmed: bool
 
 
+class DeleteFileRequest(BaseModel):
+    # The pdf_path exactly as returned by GET /api/status; paths that the
+    # status scan doesn't report are rejected with 404.
+    pdf_path: str
+    confirmed: bool
+
+
 class DocumentInfoResponse(BaseModel):
     """Per-document metadata: from the vector store's chunk metadata for
     indexed documents, from the pending manifest (page count read from the

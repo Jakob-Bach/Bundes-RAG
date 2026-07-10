@@ -14,6 +14,7 @@ from bundesrag.ingestion.pipeline import (
     IndexCounts,
     OperationCancelled,
     run_delete_all,
+    run_delete_file,
     run_download,
     run_index,
     run_status,
@@ -638,6 +639,58 @@ def test_run_delete_all_without_downloads_is_a_noop_on_files(settings, vectorsto
 
     assert summary.num_files == 0
     vectorstore.delete_collection.assert_called_once()
+
+
+def test_run_delete_file_removes_pdf_and_chunks(settings, vectorstore):
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4")
+
+    run_delete_file(pdf_path, settings, vectorstore=vectorstore)
+
+    assert not pdf_path.exists()
+    vectorstore.delete.assert_called_once_with(where={"pdf_path": str(pdf_path)})
+
+
+def test_run_delete_file_removes_pending_manifest_entry(
+    settings, query_agent, dip_client, vectorstore
+):
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: counts.num_to_download,
+        confirm_filters=lambda f: True,
+    )
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    assert load_pending(settings)
+
+    run_delete_file(pdf_path, settings, vectorstore=vectorstore)
+
+    assert not pdf_path.exists()
+    assert load_pending(settings) == []
+
+
+def test_run_delete_file_unknown_path_raises(settings, vectorstore):
+    with pytest.raises(FileNotFoundError):
+        run_delete_file(
+            settings.pdf_dir / "drucksache" / "19_1.pdf", settings, vectorstore=vectorstore
+        )
+
+    vectorstore.delete.assert_not_called()
+
+
+def test_run_delete_file_refuses_paths_outside_pdf_dir(settings, vectorstore, tmp_path):
+    outside = tmp_path / "outside.pdf"
+    outside.write_bytes(b"%PDF-1.4")
+
+    with pytest.raises(FileNotFoundError):
+        run_delete_file(outside, settings, vectorstore=vectorstore)
+
+    assert outside.exists()
+    vectorstore.delete.assert_not_called()
 
 
 def test_run_status_reports_downloaded_and_indexed_counts(

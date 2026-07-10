@@ -18,9 +18,12 @@ export default {
   clear_submit: 'Alles löschen',
   clear_title: 'Löschen',
   confirm_delete_all: 'Wirklich alle heruntergeladenen Dokumente und die Vektordatenbank löschen?',
+  confirm_delete_file:
+    'Datei „{file}“ wirklich löschen (inklusive ihrer Einträge in der Vektordatenbank)?',
   confirm_use_query: 'Abfrage so verwenden?',
   count_submit: 'Bestätigen',
   delete_done: 'Fertig: {num_files} Dateien gelöscht und Vektordatenbank zurückgesetzt.',
+  delete_file_label: 'Datei löschen',
   download_done: 'Fertig: {num_documents} Dokumente heruntergeladen.',
   download_partial_failure:
     'Achtung: {num_failed} Dokument(e) konnten nicht heruntergeladen werden ' +
@@ -61,6 +64,7 @@ export default {
   status_num_indexed: 'Indexiert: {count}',
   status_pdf_size: 'Speicherplatz PDFs: {size}',
   status_source_link: 'PDF',
+  status_th_actions: 'Aktionen',
   status_th_chunks: 'Textabschnitte',
   status_th_datum: 'Datum',
   status_th_doc_id: 'DIP-ID',

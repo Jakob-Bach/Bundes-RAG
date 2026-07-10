@@ -264,6 +264,27 @@ def run_delete_all(settings: Settings, *, vectorstore: Chroma) -> DeleteSummary:
     return DeleteSummary(num_files=num_files)
 
 
+def run_delete_file(pdf_path: Path, settings: Settings, *, vectorstore: Chroma) -> None:
+    """Delete a single downloaded PDF, plus its chunks and pending entry.
+
+    `pdf_path` must be one of the files the status scan reports; anything else
+    raises FileNotFoundError. Matching against the scanned files instead of
+    trusting the caller's path keeps the web endpoint from deleting arbitrary
+    files outside `pdf_dir`.
+    """
+    _, status = _scan_documents(settings)
+    match = next((file for file in status.files if file.pdf_path == pdf_path), None)
+    if match is None:
+        raise FileNotFoundError(str(pdf_path))
+    # Chunks are deleted before the file so a vector-store failure leaves a
+    # retryable state instead of orphaned chunks whose PDF is gone. The delete
+    # runs even for not-indexed files: an index run that crashed between
+    # embedding a document and updating the manifest leaves such chunks behind.
+    vectorstore.delete(where={"pdf_path": str(match.pdf_path)})
+    match.pdf_path.unlink()
+    remove_pending(settings, match.pdf_path)
+
+
 def _document_kind(pdf_path: Path, pdf_dir: Path) -> str:
     # PDFs are stored under pdf_dir/<endpoint>/, so the first path component
     # below pdf_dir is the endpoint the document was downloaded from.

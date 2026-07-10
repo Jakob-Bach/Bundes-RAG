@@ -113,6 +113,43 @@ def test_clear_deletes_when_confirmed(client, settings, vectorstore):
     vectorstore.delete_collection.assert_called_once()
 
 
+def test_delete_file_requires_confirmation(client, settings, vectorstore):
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4")
+
+    response = client.post(
+        "/api/files/delete", json={"pdf_path": str(pdf_path), "confirmed": False}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == t("confirmation_required")
+    assert pdf_path.exists()
+    vectorstore.delete.assert_not_called()
+
+
+def test_delete_file_unknown_path_returns_404(client, vectorstore):
+    response = client.post(
+        "/api/files/delete", json={"pdf_path": "does_not_exist.pdf", "confirmed": True}
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == t("file_not_found")
+    vectorstore.delete.assert_not_called()
+
+
+def test_delete_file_removes_pdf_and_chunks(client, settings, vectorstore):
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4")
+
+    response = client.post("/api/files/delete", json={"pdf_path": str(pdf_path), "confirmed": True})
+
+    assert response.status_code == 204
+    assert not pdf_path.exists()
+    vectorstore.delete.assert_called_once_with(where={"pdf_path": str(pdf_path)})
+
+
 def test_status_without_downloads_is_empty(client, vectorstore):
     response = client.get("/api/status")
 

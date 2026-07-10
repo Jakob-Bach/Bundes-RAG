@@ -1,9 +1,10 @@
 import logging
+from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
 from bundesrag.i18n import t
-from bundesrag.ingestion.pipeline import run_delete_all, run_status
+from bundesrag.ingestion.pipeline import run_delete_all, run_delete_file, run_status
 from bundesrag.logging_config import LOGGER_NAME
 from bundesrag.rag.answer_agent import answer_question
 from bundesrag.web.dependencies import ChatLlmDep, SettingsDep, VectorstoreDep
@@ -12,6 +13,7 @@ from bundesrag.web.schemas import (
     AskResponse,
     ClearRequest,
     ConfigResponse,
+    DeleteFileRequest,
     DeleteSummaryResponse,
     DocumentInfoResponse,
     FileStatusResponse,
@@ -61,6 +63,25 @@ def clear(
         raise HTTPException(status_code=500, detail=t("unexpected_error")) from None
     logger.info("web clear succeeded: %d files deleted", summary.num_files)
     return DeleteSummaryResponse(num_files=summary.num_files)
+
+
+@router.post("/files/delete", status_code=204)
+def delete_file(
+    request: DeleteFileRequest,
+    settings: SettingsDep,
+    vectorstore: VectorstoreDep,
+) -> None:
+    if not request.confirmed:
+        raise HTTPException(status_code=400, detail=t("confirmation_required"))
+    logger.info("web delete file invoked: %s", request.pdf_path)
+    try:
+        run_delete_file(Path(request.pdf_path), settings, vectorstore=vectorstore)
+    except FileNotFoundError:
+        raise HTTPException(status_code=404, detail=t("file_not_found")) from None
+    except Exception:
+        logger.exception("web delete file failed")
+        raise HTTPException(status_code=500, detail=t("unexpected_error")) from None
+    logger.info("web delete file succeeded: %s", request.pdf_path)
 
 
 @router.get("/status", response_model=StatusResponse)

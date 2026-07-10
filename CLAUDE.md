@@ -151,6 +151,18 @@ Chroma collection, and clears `data/pending_index.json`. The CLI asks for
 confirmation (`--yes`/`-y` to skip it) since this is destructive and
 irreversible.
 
+**Single-file delete** (`ingestion/pipeline.py: run_delete_file`, web-only —
+the CLI has no counterpart): the web status table has a per-file delete
+button (`POST /api/files/delete` in `routes_sync.py`, body
+`{pdf_path, confirmed}` with the `pdf_path` string from `GET /api/status`).
+It deletes the document's chunks from the vector store first
+(`vectorstore.delete(where={"pdf_path": …})`, unconditional so chunks left by
+an index run that crashed between embedding and manifest update are covered
+too), then the PDF from disk, then the pending-manifest entry. The requested
+path must match a file the status scan reports — anything else raises
+`FileNotFoundError` (mapped to a localized 404) — so the endpoint can't be
+used to delete arbitrary files outside `data/pdfs/`.
+
 **Dependency injection**: all pipelines take their LLM, vectorstore, and DIP
 client as constructor/function arguments (not constructed internally), which
 is how the test suite substitutes fakes/mocks without touching real APIs.

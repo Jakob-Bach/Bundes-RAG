@@ -63,3 +63,10 @@ export function clear(confirmed) {
 export function getStatus() {
   return request('/api/status')
 }
+
+export function deleteFile(pdfPath) {
+  return request('/api/files/delete', {
+    method: 'POST',
+    body: JSON.stringify({ pdf_path: pdfPath, confirmed: true }),
+  })
+}

@@ -18,9 +18,12 @@ export default {
   clear_submit: 'Delete everything',
   clear_title: 'Clear',
   confirm_delete_all: 'Really delete all downloaded documents and reset the vector store?',
+  confirm_delete_file:
+    'Really delete file “{file}” (including its entries in the vector store)?',
   confirm_use_query: 'Use this query?',
   count_submit: 'Confirm',
   delete_done: 'Done: {num_files} files deleted and vector store reset.',
+  delete_file_label: 'Delete file',
   download_done: 'Done: {num_documents} documents downloaded.',
   download_partial_failure:
     'Warning: {num_failed} document(s) could not be downloaded and were skipped.',
@@ -60,6 +63,7 @@ export default {
   status_num_indexed: 'Indexed: {count}',
   status_pdf_size: 'Disk usage of PDFs: {size}',
   status_source_link: 'PDF',
+  status_th_actions: 'Actions',
   status_th_chunks: 'Chunks',
   status_th_datum: 'Date',
   status_th_doc_id: 'DIP ID',

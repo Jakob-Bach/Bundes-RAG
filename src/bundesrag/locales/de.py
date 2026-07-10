@@ -55,6 +55,7 @@ MESSAGES = {
     "download_skipped_existing": (
         "Hinweis: {num_skipped} Dokument(e) waren bereits heruntergeladen und wurden übersprungen."
     ),
+    "file_not_found": "Datei nicht gefunden.",
     "filter_dokumentnummer": "  Dokumentnummer: {value}",
     "filter_drucksachetyp": "  Drucksachetyp: {value}",
     "filter_ressort": "  Ressort: {value}",
