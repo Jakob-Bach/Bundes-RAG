@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(npm run build)",
+      "PowerShell(uv run pytest)",
+      "PowerShell(uv run pytest -q)",
+      "PowerShell(uv run ruff check .)",
+      "PowerShell(uv run ruff check . --fix)",
+      "PowerShell(uv run ruff format .)"
+    ]
+  }
+}
