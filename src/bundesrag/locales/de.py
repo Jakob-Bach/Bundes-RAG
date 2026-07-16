@@ -91,6 +91,11 @@ MESSAGES = {
     "sources_header": "\nQuellen:",
     "status_file_indexed": "indexiert",
     "status_file_not_indexed": "nicht indexiert",
+    "status_chunk_mismatch": (
+        "Warnung: Die Vektordatenbank enthält {num_chunks} Textabschnitte, laut den "
+        "Dokument-Metadaten erwartet werden {num_expected} — z. B. durch einen "
+        "abgebrochenen Indexierungslauf oder außerhalb des Tools geänderte Daten."
+    ),
     "status_files_header": "Dateien:",
     "status_help": "Zeigt an, wie viele Dokumente heruntergeladen und indexiert sind.",
     "status_num_chunks": "Textabschnitte in der Vektordatenbank: {count}",

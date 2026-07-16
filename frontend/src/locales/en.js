@@ -56,6 +56,10 @@ export default {
   sources_header: 'Sources:',
   status_file_indexed: 'indexed',
   status_file_not_indexed: 'not indexed',
+  status_chunk_mismatch:
+    'Warning: the vector store contains {num_chunks} chunks, but the document ' +
+    'metadata accounts for {num_expected} — e.g. due to an aborted indexing run ' +
+    'or data modified outside the tool.',
   status_loading: 'Loading status …',
   status_no_documents: 'No documents downloaded.',
   status_num_chunks: 'Chunks in the vector store: {count}',

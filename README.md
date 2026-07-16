@@ -106,12 +106,16 @@ uv run bundesrag status
 Prints how many documents have been downloaded and how many of those are
 indexed, the number of chunks in the vector store, the disk usage of the
 PDFs and the vector store, plus a per-file list showing which PDFs are still
-awaiting indexing. The web UI's status page shows the same and additionally
+awaiting indexing. If the vector store's chunk count doesn't match the total
+recorded in the per-document metadata (e.g. after an aborted indexing run),
+a warning points out the inconsistency. The web UI's status page shows the same and additionally
 each file's document kind (Drucksache or Plenarprotokoll) plus per-document
 metadata (title, document number, date, page/chunk counts, DIP id, and a
-link to the source PDF) — taken from the vector store for indexed documents
-and from the download manifest for not-yet-indexed ones, whose page count is
-read from the PDF itself; the chunk count only exists after indexing.
+link to the source PDF) — recorded in `data/indexed_docs.json` when a
+document is indexed (documents indexed by older versions are backfilled from
+the vector store on the first `status` run) and taken from the download
+manifest for not-yet-indexed ones, whose page count is read from the PDF
+itself; the chunk count only exists after indexing.
 Pending entries whose PDF was deleted manually are dropped from the manifest
 (both `status` and `index` do this), so a missing file doesn't block indexing.
 The web UI's per-file table also offers a delete button per document that
@@ -125,8 +129,8 @@ uv run bundesrag clear
 ```
 
 Deletes every downloaded PDF, resets the Chroma vector store, and clears the
-pending-index manifest. Asks for confirmation unless `--yes`/`-y` is passed.
-This is destructive and irreversible.
+pending-index and indexed-docs manifests. Asks for confirmation unless
+`--yes`/`-y` is passed. This is destructive and irreversible.
 
 ### Web interface
 
@@ -167,6 +171,8 @@ defaults):
 
 - `data/pdfs/` — downloaded PDFs, organized by document type
 - `data/pending_index.json` — manifest of downloaded PDFs awaiting indexing
+- `data/indexed_docs.json` — per-document metadata of indexed PDFs, shown by
+  `status` without scanning the vector store
 - `data/chroma/` — the persisted vector store
 - `data/bundesrag.log` — log file; errors are detailed here (with tracebacks),
   while the CLI/web UI only shows a generic error message

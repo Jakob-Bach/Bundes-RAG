@@ -35,6 +35,13 @@ def get_vectorstore_dep(settings: SettingsDep) -> Chroma:
     return get_vectorstore(settings)
 
 
+def get_metadata_vectorstore_dep(settings: SettingsDep) -> Chroma:
+    # Status/clear/delete only run metadata operations (count/get/delete) and
+    # never embed anything; skipping the embeddings client avoids its slow
+    # Hugging Face tokenizer fetch on every request.
+    return get_vectorstore(settings, with_embeddings=False)
+
+
 def get_chat_llm(settings: SettingsDep) -> ChatLlm:
     return create_chat_llm(settings)
 
@@ -42,4 +49,5 @@ def get_chat_llm(settings: SettingsDep) -> ChatLlm:
 DipClientDep = Annotated[DipClient, Depends(get_dip_client)]
 QueryAgentDep = Annotated[QueryAgent, Depends(get_query_agent)]
 VectorstoreDep = Annotated[Chroma, Depends(get_vectorstore_dep)]
+MetadataVectorstoreDep = Annotated[Chroma, Depends(get_metadata_vectorstore_dep)]
 ChatLlmDep = Annotated[ChatLlm, Depends(get_chat_llm)]

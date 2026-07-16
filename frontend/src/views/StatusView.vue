@@ -65,6 +65,14 @@ function formatSize(numBytes) {
         {{ $t('status_pdf_size', { size: formatSize(status.pdf_size_bytes) }) }}<br />
         {{ $t('status_vectorstore_size', { size: formatSize(status.vectorstore_size_bytes) }) }}
       </p>
+      <p v-if="status.num_chunks !== status.num_manifest_chunks">
+        <strong>{{
+          $t('status_chunk_mismatch', {
+            num_chunks: status.num_chunks,
+            num_expected: status.num_manifest_chunks,
+          })
+        }}</strong>
+      </p>
       <div v-if="status.files.length" class="table-scroll">
         <table>
           <thead>

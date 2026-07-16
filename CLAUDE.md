@@ -102,12 +102,17 @@ docstrings, runtime output is localized via i18n).
    `RecursiveCharacterTextSplitter`, and given deterministic ids
    (`{dokumentnummer}-p{page}-{chunk_index}`) so re-running `index` on
    overlapping document sets upserts rather than duplicating chunks in Chroma.
-3. After each document is embedded into the vector store, it's removed from
-   the manifest individually (`remove_pending`) — this is why `download` and
-   `index` are separate commands: indexing many documents takes considerably
-   longer than downloading them and can fail partway (e.g. an API rate
-   limit), so re-running `index` after a failure only reprocesses documents
-   still listed as pending, instead of redoing the whole batch.
+3. After each document is embedded into the vector store, its per-document
+   metadata (`DocumentInfo`, see `status` below) is recorded in the
+   indexed-docs manifest (`data/indexed_docs.json`, `add_indexed_info`) and
+   the document is removed from the pending manifest individually
+   (`remove_pending`, in that order — a crash in between leaves the document
+   pending and re-indexed later rather than indexed-but-unrecorded). The
+   per-document removal is why `download` and `index` are separate commands:
+   indexing many documents takes considerably longer than downloading them
+   and can fail partway (e.g. an API rate limit), so re-running `index`
+   after a failure only reprocesses documents still listed as pending,
+   instead of redoing the whole batch.
 
 **`ask` pipeline** (`rag/answer_agent.py: answer_question`):
 1. `rag/retriever.py: retrieve` does a similarity search against the Chroma
@@ -128,15 +133,28 @@ they can never be indexed, and a stale entry would otherwise make every
 `index` run fail on the missing file — then lists every PDF under
 `data/pdfs/` and reports each as indexed unless it still appears in the
 manifest. On top of that, `run_status` (which, unlike `_scan_documents`,
-takes the vectorstore as an argument) reads all chunk metadata from the
-Chroma collection to add the total chunk count and the disk usage of
-`data/pdfs/` and the Chroma directory, and attaches per-document metadata
-(`DocumentInfo` on `FileStatus.info`: doc id, dokumentnummer, title, date,
-source URL, chunk/page counts, matched to files by PDF path): for indexed
-documents it's aggregated from the chunk metadata (the document-level
-fields are identical across a document's chunks; pages/chunks are counted),
-for not-yet-indexed ones it comes from the pending manifest — which stores
-the full DIP record — with the page count read from the PDF itself
+takes the vectorstore as an argument) adds the total chunk count (a plain
+`collection.count()` via `vectorstore.collection_chunk_count`) plus the
+chunk total the indexed-docs manifest accounts for
+(`StatusSummary.num_manifest_chunks`) — when the two differ (e.g. chunks
+left by an index run that crashed before recording its document, or data
+modified outside the tool), the CLI and the SPA show a localized warning
+(`status_chunk_mismatch`) — and the disk
+usage of `data/pdfs/` and the Chroma directory, and attaches per-document
+metadata (`DocumentInfo` on `FileStatus.info`, defined in
+`ingestion/manifest.py`: doc id, dokumentnummer, title, date, source URL,
+chunk/page counts, matched to files by PDF path): for indexed documents
+it's read from the indexed-docs manifest (`data/indexed_docs.json`), which
+`run_index` writes per document; indexed files missing from that manifest
+(indexed before the manifest existed, or the file was deleted) are
+backfilled once via `_collect_index_info` — a full, slow scan of all chunk
+metadata in Chroma that aggregates the document-level fields — and the
+result is persisted so later runs stay on the fast path. Since the manifest
+is derived data that this backfill can rebuild, `load_indexed_info` treats
+an unreadable/corrupt manifest file as empty (with a log warning) instead
+of failing the status run. For not-yet-indexed
+files the info comes from the pending manifest — which stores the full DIP
+record — with the page count read from the PDF itself
 (`pdf_loader.pdf_page_count`, None if unparseable) and `num_chunks` None,
 since chunks only exist after indexing. The CLI prints the high-level stats
 (downloaded/indexed counts, chunk count, both disk usages) and the plain
@@ -151,9 +169,9 @@ pruning and counting live in one place.
 
 **`clear` pipeline** (`ingestion/pipeline.py: run_delete_all`): removes every
 PDF under `data/pdfs/`, calls `vectorstore.delete_collection()` to reset the
-Chroma collection, and clears `data/pending_index.json`. The CLI asks for
-confirmation (`--yes`/`-y` to skip it) since this is destructive and
-irreversible.
+Chroma collection, and clears `data/pending_index.json` and
+`data/indexed_docs.json`. The CLI asks for confirmation (`--yes`/`-y` to
+skip it) since this is destructive and irreversible.
 
 **Single-file delete** (`ingestion/pipeline.py: run_delete_file`, web-only —
 the CLI has no counterpart): the web status table has a per-file delete
@@ -162,7 +180,8 @@ button (`POST /api/files/delete` in `routes_sync.py`, body
 It deletes the document's chunks from the vector store first
 (`vectorstore.delete(where={"pdf_path": …})`, unconditional so chunks left by
 an index run that crashed between embedding and manifest update are covered
-too), then the PDF from disk, then the pending-manifest entry. The requested
+too), then the PDF from disk, then the pending- and indexed-docs-manifest
+entries. The requested
 path must match a file the status scan reports — anything else raises
 `FileNotFoundError` (mapped to a localized 404) — so the endpoint can't be
 used to delete arbitrary files outside `data/pdfs/`.
@@ -172,7 +191,16 @@ client as constructor/function arguments (not constructed internally), which
 is how the test suite substitutes fakes/mocks without touching real APIs.
 `create_query_agent` / `create_chat_llm` are the only places that construct
 real `ChatMistralAI` instances, and import `langchain_mistralai` lazily inside
-the function body.
+the function body. `get_vectorstore(settings, with_embeddings=False)` builds
+the Chroma store without a Mistral embeddings client — the
+`MistralAIEmbeddings` constructor always attempts a Hugging Face tokenizer
+download that fails without `HF_TOKEN` (gated repo; a dummy tokenizer used
+only for embedding-batch sizing takes over). The failing request is
+usually subsecond but blocks on the network and can take ~10s under HF
+throttling, so callers that only run metadata operations (CLI
+`status`/`clear`, the web `MetadataVectorstoreDep` used by
+status/clear/single-file delete) skip it; `index` and `ask` need real
+embeddings and keep the default.
 
 **Config** (`config.py: Settings`): a `pydantic-settings` `BaseSettings`
 loading from `.env`; holds API keys, model names, the output `language`, and

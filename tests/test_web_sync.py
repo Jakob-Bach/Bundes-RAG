@@ -7,7 +7,11 @@ from bundesrag.config import Settings
 from bundesrag.i18n import set_language, t
 from bundesrag.ingestion.manifest import PendingDocument, add_pending
 from bundesrag.web.app import create_app
-from bundesrag.web.dependencies import get_chat_llm, get_vectorstore_dep
+from bundesrag.web.dependencies import (
+    get_chat_llm,
+    get_metadata_vectorstore_dep,
+    get_vectorstore_dep,
+)
 
 
 @pytest.fixture
@@ -24,7 +28,9 @@ def client(app):
 def vectorstore(app, mocker):
     store = mocker.Mock()
     store.get.return_value = {"ids": [], "metadatas": []}
+    store._collection.count.return_value = 0
     app.dependency_overrides[get_vectorstore_dep] = lambda: store
+    app.dependency_overrides[get_metadata_vectorstore_dep] = lambda: store
     return store
 
 
@@ -158,6 +164,7 @@ def test_status_without_downloads_is_empty(client, vectorstore):
         "num_downloaded": 0,
         "num_indexed": 0,
         "num_chunks": 0,
+        "num_manifest_chunks": 0,
         "pdf_size_bytes": 0,
         "vectorstore_size_bytes": 0,
         "files": [],
@@ -179,6 +186,7 @@ def test_status_reports_downloaded_files_with_document_info(client, settings, ve
         "source_url": "https://example.org/1.pdf",
     }
     vectorstore.get.return_value = {"ids": [chunk_meta["id"]], "metadatas": [chunk_meta]}
+    vectorstore._collection.count.return_value = 1
 
     response = client.get("/api/status")
 
@@ -187,6 +195,7 @@ def test_status_reports_downloaded_files_with_document_info(client, settings, ve
     assert body["num_downloaded"] == 1
     assert body["num_indexed"] == 1
     assert body["num_chunks"] == 1
+    assert body["num_manifest_chunks"] == 1
     assert body["pdf_size_bytes"] == len(b"%PDF-1.4")
     assert body["files"][0]["pdf_path"].endswith("19_1.pdf")
     assert body["files"][0]["indexed"] is True
@@ -243,8 +252,21 @@ def test_status_reports_pending_document_info_from_manifest(client, settings, ve
     }
 
 
+def test_status_reports_chunk_count_mismatch(client, vectorstore):
+    # 5 chunks in the store but none accounted for by the manifest — the SPA
+    # renders a warning from these two fields.
+    vectorstore._collection.count.return_value = 5
+
+    response = client.get("/api/status")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["num_chunks"] == 5
+    assert body["num_manifest_chunks"] == 0
+
+
 def test_status_returns_500_on_unexpected_error(client, vectorstore):
-    vectorstore.get.side_effect = RuntimeError("boom")
+    vectorstore._collection.count.side_effect = RuntimeError("boom")
 
     response = client.get("/api/status")
 

@@ -145,7 +145,9 @@ def clear(
         logger.warning("clear aborted: user declined confirmation")
         raise typer.Exit(code=1)
     try:
-        summary = run_delete_all(settings, vectorstore=get_vectorstore(settings))
+        summary = run_delete_all(
+            settings, vectorstore=get_vectorstore(settings, with_embeddings=False)
+        )
     except Exception:
         logger.exception("clear failed")
         typer.echo(t("unexpected_error"))
@@ -168,7 +170,7 @@ def status() -> None:
     settings = _init()
     logger.info("status command invoked")
     try:
-        summary = run_status(settings, vectorstore=get_vectorstore(settings))
+        summary = run_status(settings, vectorstore=get_vectorstore(settings, with_embeddings=False))
     except Exception:
         logger.exception("status failed")
         typer.echo(t("unexpected_error"))
@@ -182,6 +184,14 @@ def status() -> None:
     typer.echo(t("status_num_downloaded", count=summary.num_downloaded))
     typer.echo(t("status_num_indexed", count=summary.num_indexed))
     typer.echo(t("status_num_chunks", count=summary.num_chunks))
+    if summary.num_chunks != summary.num_manifest_chunks:
+        typer.echo(
+            t(
+                "status_chunk_mismatch",
+                num_chunks=summary.num_chunks,
+                num_expected=summary.num_manifest_chunks,
+            )
+        )
     typer.echo(t("status_pdf_size", size=_format_size(summary.pdf_size_bytes)))
     typer.echo(t("status_vectorstore_size", size=_format_size(summary.vectorstore_size_bytes)))
     typer.echo(t("status_files_header"))

@@ -57,6 +57,10 @@ export default {
   sources_header: 'Quellen:',
   status_file_indexed: 'indexiert',
   status_file_not_indexed: 'nicht indexiert',
+  status_chunk_mismatch:
+    'Warnung: Die Vektordatenbank enthält {num_chunks} Textabschnitte, laut den ' +
+    'Dokument-Metadaten erwartet werden {num_expected} — z. B. durch einen ' +
+    'abgebrochenen Indexierungslauf oder außerhalb des Tools geänderte Daten.',
   status_loading: 'Lade Status …',
   status_no_documents: 'Keine Dokumente heruntergeladen.',
   status_num_chunks: 'Textabschnitte in der Vektordatenbank: {count}',

@@ -5,6 +5,7 @@ from pathlib import Path
 
 import httpx
 from langchain_chroma import Chroma
+from langchain_core.documents import Document
 from tqdm import tqdm
 
 from bundesrag.config import Settings
@@ -12,17 +13,22 @@ from bundesrag.dip.client import DipClient
 from bundesrag.dip.models import DocumentMeta
 from bundesrag.i18n import t
 from bundesrag.ingestion.manifest import (
+    DocumentInfo,
     PendingDocument,
+    add_indexed_info,
     add_pending,
+    load_indexed_info,
     load_pending,
+    remove_indexed_info,
     remove_pending,
+    save_indexed_info,
     save_pending,
 )
 from bundesrag.ingestion.pdf_loader import citation_label, load_pdf_as_chunks, pdf_page_count
 from bundesrag.progress import step
 from bundesrag.query_agent.agent import QueryAgent
 from bundesrag.query_agent.schema import DipQueryFilters
-from bundesrag.vectorstore import add_documents
+from bundesrag.vectorstore import add_documents, collection_chunk_count
 
 logger = logging.getLogger(__name__)
 
@@ -63,27 +69,6 @@ class DeleteSummary:
 
 
 @dataclass
-class DocumentInfo:
-    """Per-document metadata shown in the status output.
-
-    For indexed documents this is aggregated from the chunk metadata in the
-    vector store (all chunks of a document share the document-level fields;
-    `page` and the chunk id vary per chunk and are aggregated into counts).
-    For not-yet-indexed documents it comes from the pending manifest, with
-    the page count read from the PDF itself and `num_chunks` left None —
-    chunks only exist after indexing.
-    """
-
-    doc_id: str | None
-    dokumentnummer: str | None
-    citation_label: str | None
-    datum: str | None
-    source_url: str | None
-    num_chunks: int | None
-    num_pages: int | None
-
-
-@dataclass
 class FileStatus:
     pdf_path: Path
     indexed: bool
@@ -99,6 +84,11 @@ class StatusSummary:
     num_indexed: int
     files: list[FileStatus]
     num_chunks: int = 0
+    # Total chunks recorded in the indexed-docs manifest. Differing from
+    # num_chunks (the vector store's actual count) signals an inconsistency:
+    # e.g. chunks left by an index run that crashed before recording the
+    # document, or a vector store reset/edited outside the pipelines.
+    num_manifest_chunks: int = 0
     pdf_size_bytes: int = 0
     vectorstore_size_bytes: int = 0
 
@@ -244,6 +234,13 @@ def run_index(
         add_documents(vectorstore, chunks)
         num_documents += 1
         num_chunks += len(chunks)
+        # Record the document's status metadata now, while the DIP record and
+        # chunks are in hand — run_status reads it from the indexed-docs
+        # manifest instead of scanning every chunk's metadata in the vector
+        # store. Written before remove_pending so a crash in between leaves
+        # the document pending (re-indexed and re-recorded later) rather than
+        # indexed-but-unrecorded.
+        add_indexed_info(settings, entry.pdf_path, _indexed_document_info(meta, chunks))
         # Remove right after each document so a crash/abort mid-run leaves only the
         # not-yet-indexed documents pending, not the whole batch.
         remove_pending(settings, entry.pdf_path)
@@ -261,6 +258,7 @@ def run_delete_all(settings: Settings, *, vectorstore: Chroma) -> DeleteSummary:
 
     vectorstore.delete_collection()
     save_pending(settings, [])
+    save_indexed_info(settings, {})
     return DeleteSummary(num_files=num_files)
 
 
@@ -283,6 +281,7 @@ def run_delete_file(pdf_path: Path, settings: Settings, *, vectorstore: Chroma) 
     vectorstore.delete(where={"pdf_path": str(match.pdf_path)})
     match.pdf_path.unlink()
     remove_pending(settings, match.pdf_path)
+    remove_indexed_info(settings, match.pdf_path)
 
 
 def _document_kind(pdf_path: Path, pdf_dir: Path) -> str:
@@ -335,7 +334,11 @@ _CHUNK_FETCH_BATCH_SIZE = 5000
 
 
 def _collect_index_info(vectorstore: Chroma) -> tuple[int, dict[Path, DocumentInfo]]:
-    """Fetch all chunk metadata and aggregate it per document (keyed by PDF path)."""
+    """Fetch all chunk metadata and aggregate it per document (keyed by PDF path).
+
+    Slow (it reads every chunk's metadata); only used to backfill the
+    indexed-docs manifest for documents indexed before the manifest existed.
+    """
     metadatas: list[dict] = []
     offset = 0
     while True:
@@ -378,12 +381,48 @@ def _pending_document_info(entry: PendingDocument) -> DocumentInfo:
     )
 
 
+def _indexed_document_info(meta: DocumentMeta, chunks: list[Document]) -> DocumentInfo:
+    return DocumentInfo(
+        doc_id=meta.id,
+        dokumentnummer=meta.dokumentnummer,
+        citation_label=citation_label(meta),
+        datum=meta.datum.isoformat(),
+        source_url=meta.pdf_url,
+        num_chunks=len(chunks),
+        num_pages=len({chunk.metadata.get("page") for chunk in chunks}),
+    )
+
+
 def run_status(settings: Settings, *, vectorstore: Chroma) -> StatusSummary:
     pending, summary = _scan_documents(settings)
-    summary.num_chunks, info_by_path = _collect_index_info(vectorstore)
-    # Not-yet-indexed documents have no (complete) chunk metadata in the
-    # vector store; their info comes from the pending manifest instead, which
-    # stores the full DIP record. It overrides any partial chunk data so the
+    summary.num_chunks = collection_chunk_count(vectorstore)
+    info_by_path = load_indexed_info(settings)
+    # Indexed files missing from the indexed-docs manifest (indexed before
+    # the manifest existed, or the manifest file was deleted) are backfilled
+    # once from the full chunk-metadata scan; persisting the result keeps
+    # later runs on the fast path.
+    missing = [
+        file.pdf_path
+        for file in summary.files
+        if file.indexed and file.pdf_path not in info_by_path
+    ]
+    if missing and summary.num_chunks:
+        _, scanned = _collect_index_info(vectorstore)
+        backfilled = {path: scanned[path] for path in missing if path in scanned}
+        if backfilled:
+            info_by_path.update(backfilled)
+            save_indexed_info(settings, info_by_path)
+    summary.num_manifest_chunks = sum(info.num_chunks or 0 for info in info_by_path.values())
+    if summary.num_manifest_chunks != summary.num_chunks:
+        logger.warning(
+            "chunk count mismatch: %d in the vector store, %d recorded in the "
+            "indexed-docs manifest",
+            summary.num_chunks,
+            summary.num_manifest_chunks,
+        )
+    # Not-yet-indexed documents have no (complete) entry in the indexed-docs
+    # manifest; their info comes from the pending manifest instead, which
+    # stores the full DIP record. It overrides any stale indexed entry so the
     # info source always matches the file's indexed/not-indexed status.
     for entry in pending:
         info_by_path[entry.pdf_path] = _pending_document_info(entry)

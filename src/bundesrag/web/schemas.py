@@ -69,6 +69,9 @@ class StatusResponse(BaseModel):
     num_downloaded: int
     num_indexed: int
     num_chunks: int
+    # Chunk total recorded in the indexed-docs manifest; the SPA warns when it
+    # differs from num_chunks (the vector store's actual count).
+    num_manifest_chunks: int
     pdf_size_bytes: int
     vectorstore_size_bytes: int
     files: list[FileStatusResponse]

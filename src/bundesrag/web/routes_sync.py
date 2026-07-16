@@ -7,7 +7,12 @@ from bundesrag.i18n import t
 from bundesrag.ingestion.pipeline import run_delete_all, run_delete_file, run_status
 from bundesrag.logging_config import LOGGER_NAME
 from bundesrag.rag.answer_agent import answer_question
-from bundesrag.web.dependencies import ChatLlmDep, SettingsDep, VectorstoreDep
+from bundesrag.web.dependencies import (
+    ChatLlmDep,
+    MetadataVectorstoreDep,
+    SettingsDep,
+    VectorstoreDep,
+)
 from bundesrag.web.schemas import (
     AskRequest,
     AskResponse,
@@ -51,7 +56,7 @@ def ask(
 def clear(
     request: ClearRequest,
     settings: SettingsDep,
-    vectorstore: VectorstoreDep,
+    vectorstore: MetadataVectorstoreDep,
 ) -> DeleteSummaryResponse:
     if not request.confirmed:
         raise HTTPException(status_code=400, detail=t("confirmation_required"))
@@ -69,7 +74,7 @@ def clear(
 def delete_file(
     request: DeleteFileRequest,
     settings: SettingsDep,
-    vectorstore: VectorstoreDep,
+    vectorstore: MetadataVectorstoreDep,
 ) -> None:
     if not request.confirmed:
         raise HTTPException(status_code=400, detail=t("confirmation_required"))
@@ -85,7 +90,7 @@ def delete_file(
 
 
 @router.get("/status", response_model=StatusResponse)
-def status(settings: SettingsDep, vectorstore: VectorstoreDep) -> StatusResponse:
+def status(settings: SettingsDep, vectorstore: MetadataVectorstoreDep) -> StatusResponse:
     logger.info("web status invoked")
     try:
         summary = run_status(settings, vectorstore=vectorstore)
@@ -102,6 +107,7 @@ def status(settings: SettingsDep, vectorstore: VectorstoreDep) -> StatusResponse
         num_downloaded=summary.num_downloaded,
         num_indexed=summary.num_indexed,
         num_chunks=summary.num_chunks,
+        num_manifest_chunks=summary.num_manifest_chunks,
         pdf_size_bytes=summary.pdf_size_bytes,
         vectorstore_size_bytes=summary.vectorstore_size_bytes,
         files=[

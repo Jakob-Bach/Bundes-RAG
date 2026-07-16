@@ -7,7 +7,12 @@ from pypdf import PdfWriter
 
 from bundesrag.dip.models import DocumentMeta
 from bundesrag.ingestion import pipeline
-from bundesrag.ingestion.manifest import PendingDocument, add_pending, load_pending
+from bundesrag.ingestion.manifest import (
+    PendingDocument,
+    add_pending,
+    load_indexed_info,
+    load_pending,
+)
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
     DownloadCounts,
@@ -62,6 +67,7 @@ def dip_client(mocker):
 def vectorstore(mocker):
     store = mocker.Mock()
     store.get.return_value = {"ids": [], "metadatas": []}
+    store._collection.count.return_value = 0
     return store
 
 
@@ -70,7 +76,7 @@ def fake_chunking(mocker):
     mocker.patch.object(
         pipeline,
         "load_pdf_as_chunks",
-        return_value=[Document(page_content="text", metadata={"id": "19/1-p1-0"})],
+        return_value=[Document(page_content="text", metadata={"id": "19/1-p1-0", "page": 1})],
     )
 
 
@@ -673,6 +679,43 @@ def test_run_delete_file_removes_pending_manifest_entry(
     assert load_pending(settings) == []
 
 
+def test_run_delete_file_removes_indexed_info_entry(settings, query_agent, dip_client, vectorstore):
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: counts.num_to_download,
+        confirm_filters=lambda f: True,
+    )
+    run_index(settings, vectorstore=vectorstore)
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    assert load_indexed_info(settings)
+
+    run_delete_file(pdf_path, settings, vectorstore=vectorstore)
+
+    assert load_indexed_info(settings) == {}
+
+
+def test_run_delete_all_clears_indexed_info(settings, query_agent, dip_client, vectorstore):
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: counts.num_to_download,
+        confirm_filters=lambda f: True,
+    )
+    run_index(settings, vectorstore=vectorstore)
+    assert load_indexed_info(settings)
+
+    run_delete_all(settings, vectorstore=vectorstore)
+
+    assert load_indexed_info(settings) == {}
+
+
 def test_run_delete_file_unknown_path_raises(settings, vectorstore):
     with pytest.raises(FileNotFoundError):
         run_delete_file(
@@ -752,6 +795,7 @@ def test_run_status_reports_sizes_chunk_count_and_per_document_metadata(settings
         "ids": [meta["id"] for meta in metadatas],
         "metadatas": metadatas,
     }
+    vectorstore._collection.count.return_value = 3
 
     summary = run_status(settings, vectorstore=vectorstore)
 
@@ -768,6 +812,90 @@ def test_run_status_reports_sizes_chunk_count_and_per_document_metadata(settings
     assert info.source_url == "https://example.org/1.pdf"
     assert info.num_chunks == 3
     assert info.num_pages == 2
+
+
+def test_run_status_reads_document_info_from_manifest_without_chunk_scan(
+    settings, query_agent, dip_client, vectorstore
+):
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: counts.num_to_download,
+        confirm_filters=lambda f: True,
+    )
+    run_index(settings, vectorstore=vectorstore)
+    vectorstore._collection.count.return_value = 1
+
+    summary = run_status(settings, vectorstore=vectorstore)
+
+    # Indexing recorded the document info in the manifest, so status never
+    # falls back to the full chunk-metadata scan.
+    vectorstore.get.assert_not_called()
+    assert summary.num_chunks == 1
+    assert summary.num_manifest_chunks == 1
+    info = summary.files[0].info
+    assert info is not None
+    assert info.doc_id == "1"
+    assert info.dokumentnummer == "19/1"
+    assert info.citation_label == "Ein Titel"
+    assert info.datum == "2026-01-05"
+    assert info.source_url == "https://example.org/1.pdf"
+    assert info.num_chunks == 1
+    assert info.num_pages == 1
+
+
+def test_run_status_reports_chunk_count_mismatch(settings, query_agent, dip_client, vectorstore):
+    run_download(
+        "Drucksachen der 21. Wahlperiode.",
+        settings,
+        query_agent=query_agent,
+        dip_client=dip_client,
+        ask_user=lambda q: "",
+        confirm_count=lambda counts: counts.num_to_download,
+        confirm_filters=lambda f: True,
+    )
+    run_index(settings, vectorstore=vectorstore)
+    # The manifest accounts for 1 chunk, but the store reports 5 — e.g. chunks
+    # left behind by an index run that crashed before recording its document.
+    vectorstore._collection.count.return_value = 5
+
+    summary = run_status(settings, vectorstore=vectorstore)
+
+    assert summary.num_chunks == 5
+    assert summary.num_manifest_chunks == 1
+
+
+def test_run_status_backfill_persists_manifest_for_later_runs(settings, vectorstore):
+    pdf_path = settings.pdf_dir / "drucksache" / "19_1.pdf"
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(b"%PDF-1.4")
+    chunk_meta = {
+        "id": "19/1-p1-0",
+        "doc_id": "1",
+        "dokumentnummer": "19/1",
+        "citation_label": "Ein Titel",
+        "datum": "2026-01-05",
+        "page": 1,
+        "pdf_path": str(pdf_path),
+        "source_url": "https://example.org/1.pdf",
+    }
+    vectorstore.get.return_value = {"ids": [chunk_meta["id"]], "metadatas": [chunk_meta]}
+    vectorstore._collection.count.return_value = 1
+
+    run_status(settings, vectorstore=vectorstore)
+    vectorstore.get.reset_mock()
+    summary = run_status(settings, vectorstore=vectorstore)
+
+    # The first run backfilled the manifest from the chunk scan; the second
+    # run reads the manifest and skips the scan.
+    vectorstore.get.assert_not_called()
+    info = summary.files[0].info
+    assert info is not None
+    assert info.dokumentnummer == "19/1"
+    assert info.num_chunks == 1
 
 
 def test_run_status_leaves_info_empty_when_neither_indexed_nor_pending(settings, vectorstore):
