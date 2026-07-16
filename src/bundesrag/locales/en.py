@@ -38,7 +38,9 @@ MESSAGES = {
         '- datum_start / datum_end: date range (e.g. "since 2026-01-01")\n'
         "- wahlperiode: electoral term number (e.g. 21)\n"
         '- dokumentnummer: exact document/protocol number (e.g. "19/1")\n'
-        "- zuordnung: BT, BR, BV, or EK\n"
+        "- zuordnung: origin — BT (Bundestag), BR (Bundesrat), BV (Federal\n"
+        "  Convention), EK (Enquete Commission); without this filter,\n"
+        "  plenarprotokoll returns BT and BR protocols mixed together\n"
         '- drucksachetyp: document type, e.g. "Antrag", "Gesetzentwurf" (drucksache only)\n'
         '- urheber: originator/parliamentary group, e.g. "Fraktion der SPD" (drucksache only)\n'
         "- ressort_fdf: lead federal ministry (drucksache only)\n"

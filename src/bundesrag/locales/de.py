@@ -38,7 +38,9 @@ MESSAGES = {
         '- datum_start / datum_end: Datumsbereich (z. B. "seit 01.01.2026")\n'
         "- wahlperiode: Wahlperiodennummer (z. B. 21)\n"
         '- dokumentnummer: exakte Drucksachen-/Protokollnummer (z. B. "19/1")\n'
-        "- zuordnung: BT, BR, BV oder EK\n"
+        "- zuordnung: Herkunft — BT (Bundestag), BR (Bundesrat), BV\n"
+        "  (Bundesversammlung), EK (Enquete-Kommission); ohne diesen Filter\n"
+        "  liefert plenarprotokoll BT- und BR-Protokolle gemischt\n"
         '- drucksachetyp: Dokumenttyp, z. B. "Antrag", "Gesetzentwurf" (nur drucksache)\n'
         '- urheber: Urheber/Fraktion, z. B. "Fraktion der SPD" (nur drucksache)\n'
         "- ressort_fdf: federführendes Bundesministerium (nur drucksache)\n"

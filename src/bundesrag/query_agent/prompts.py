@@ -16,7 +16,12 @@ Verfügbare Filter (alle optional):
 datum_start=2026-01-01).
 - wahlperiode: Nummer der Wahlperiode (z. B. "21. Wahlperiode" -> 21).
 - dokumentnummer: exakte Drucksachen-/Protokollnummer (z. B. "19/1").
-- zuordnung: BT, BR, BV oder EK.
+- zuordnung: Herkunft des Dokuments — BT (Bundestag), BR (Bundesrat), \
+BV (Bundesversammlung) oder EK (Enquete-Kommission). Ohne diesen Filter \
+liefert die API Dokumente ALLER Herkünfte; insbesondere umfasst \
+"plenarprotokoll" dann sowohl Bundestags- als auch Bundesratsprotokolle. \
+Setze zuordnung="BT", wenn die Anfrage den Bundestag nennt (z. B. \
+"Bundestagsplenarprotokolle", "BT-Drucksachen"), und "BR" beim Bundesrat.
 - drucksachetyp: nur für "drucksache", z. B. "Antrag", "Gesetzentwurf", \
 "Kleine Anfrage".
 - urheber: nur für "drucksache", Liste von Urhebern (z. B. ["Bundesregierung"] \

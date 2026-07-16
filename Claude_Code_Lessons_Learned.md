@@ -37,6 +37,7 @@
 - General (vague) refactoring requests seem to be processed rather conservatively; better propose concrete refactorings
   - E.g., unused fields in the data model were only found when data model explicitly mentioned
   - Merging of data types "Drucksache"/"Plenarportokoll" needed to be requested as well
+- Bug in download: System prompt for translating user query into DIP API request mentioned "Bundestag" and "Bundesrat" only with their API parameter value ("BT", "BR"), so user requests for either chamber of parliament were not properly interpreted
 - Bug in download/indexing: If one document appeared in multiple download queries, was only downloaded once, but queued for indexing multiple times
 - Bug in indexing: If document deleted manually on disk, still listed as pending for indexing, which failed
   - Rather subtle bug and not related to expected user behavior (actually found by Claude in some other refactoring), so forgivable

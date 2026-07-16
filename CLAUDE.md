@@ -62,7 +62,11 @@ docstrings, runtime output is localized via i18n).
    `list_plenarprotokolle`), paginating via the API's cursor until it stops
    advancing. Note `urheber`/`ressort_fdf` are repeated-value filters with AND
    semantics across distinct values in the DIP API — querying for either of
-   two ministries/fractions needs two separate `download` calls.
+   two ministries/fractions needs two separate `download` calls. Both
+   endpoints serve Bundestag and Bundesrat documents mixed unless the
+   `zuordnung` filter (`BT`/`BR`/`BV`/`EK`) is set; the query-agent prompt
+   instructs the LLM to set it whenever the request names a chamber
+   ("Bundestagsplenarprotokolle" → `zuordnung="BT"`).
 3. Documents whose PDF already exists locally are filtered out first (counted
    as `num_skipped` in the summary), so repeating a query neither re-downloads
    nor re-queues them for indexing. If any new documents remain, the user is

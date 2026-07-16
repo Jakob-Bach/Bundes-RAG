@@ -274,3 +274,9 @@ build that `bundesrag serve` hosts.
   two separate `download` runs.
 - `download` only fetches `Drucksache` and `Plenarprotokoll` documents (not
   `Vorgang`, `Person`, or `Aktivität` records).
+- The DIP API serves documents of both Bundestag and Bundesrat (plus
+  Bundesversammlung and Enquete commissions) from the same endpoints, and
+  without the `zuordnung` filter a query returns all of them mixed. The
+  query agent sets `zuordnung` (e.g. `BT`/`BR`) when the prompt names a
+  chamber ("Bundestagsplenarprotokolle"); if the proposed filters shown at
+  confirmation lack a `Zuordnung` line, expect documents from both chambers.
