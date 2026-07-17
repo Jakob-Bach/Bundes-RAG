@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { deleteFile, getStatus } from '../api'
 
@@ -8,6 +8,75 @@ const status = ref(null)
 const error = ref(null)
 // pdf_path of the file whose deletion is in flight; null when idle.
 const deleting = ref(null)
+
+const sortableColumns = [
+  { key: 'file', label: 'status_th_file' },
+  { key: 'kind', label: 'status_th_kind' },
+  { key: 'status', label: 'status_th_status' },
+  { key: 'title', label: 'status_th_title' },
+  { key: 'dokumentnummer', label: 'status_th_dokumentnummer' },
+  { key: 'datum', label: 'status_th_datum' },
+  { key: 'pages', label: 'status_th_pages' },
+  { key: 'chunks', label: 'status_th_chunks' },
+  { key: 'doc_id', label: 'status_th_doc_id' },
+]
+
+const sortKey = ref(null)
+const sortAscending = ref(true)
+
+function toggleSort(key) {
+  if (sortKey.value === key) {
+    sortAscending.value = !sortAscending.value
+  } else {
+    sortKey.value = key
+    sortAscending.value = true
+  }
+}
+
+function sortValue(file, key) {
+  switch (key) {
+    case 'file':
+      return fileName(file.pdf_path)
+    case 'kind':
+      return file.kind ? t('kind_' + file.kind) : null
+    case 'status':
+      return file.indexed ? 1 : 0
+    case 'title':
+      return file.info?.citation_label
+    case 'dokumentnummer':
+      return file.info?.dokumentnummer
+    case 'datum':
+      return file.info?.datum
+    case 'pages':
+      return file.info?.num_pages
+    case 'chunks':
+      return file.info?.num_chunks
+    case 'doc_id':
+      return file.info?.doc_id
+    default:
+      return null
+  }
+}
+
+const sortedFiles = computed(() => {
+  const files = status.value?.files ?? []
+  if (!sortKey.value) return files
+  const direction = sortAscending.value ? 1 : -1
+  return [...files].sort((a, b) => {
+    const va = sortValue(a, sortKey.value)
+    const vb = sortValue(b, sortKey.value)
+    // Files without a value for the column always sort last.
+    if (va == null && vb == null) return 0
+    if (va == null) return 1
+    if (vb == null) return -1
+    const cmp =
+      typeof va === 'number' && typeof vb === 'number'
+        ? va - vb
+        : // numeric collation so e.g. Dokumentnummer 21/9 sorts before 21/10
+          String(va).localeCompare(String(vb), undefined, { numeric: true })
+    return cmp * direction
+  })
+})
 
 async function refresh() {
   try {
@@ -77,21 +146,26 @@ function formatSize(numBytes) {
         <table>
           <thead>
             <tr>
-              <th>{{ $t('status_th_file') }}</th>
-              <th>{{ $t('status_th_kind') }}</th>
-              <th>{{ $t('status_th_status') }}</th>
-              <th>{{ $t('status_th_title') }}</th>
-              <th>{{ $t('status_th_dokumentnummer') }}</th>
-              <th>{{ $t('status_th_datum') }}</th>
-              <th>{{ $t('status_th_pages') }}</th>
-              <th>{{ $t('status_th_chunks') }}</th>
-              <th>{{ $t('status_th_doc_id') }}</th>
+              <th
+                v-for="column in sortableColumns"
+                :key="column.key"
+                :aria-sort="
+                  sortKey === column.key ? (sortAscending ? 'ascending' : 'descending') : null
+                "
+              >
+                <button type="button" class="sort-button" @click="toggleSort(column.key)">
+                  {{ $t(column.label)
+                  }}<span class="sort-indicator" aria-hidden="true">{{
+                    sortKey === column.key ? (sortAscending ? ' ▲' : ' ▼') : ''
+                  }}</span>
+                </button>
+              </th>
               <th>{{ $t('status_th_source') }}</th>
               <th>{{ $t('status_th_actions') }}</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="file in status.files" :key="file.pdf_path">
+            <tr v-for="file in sortedFiles" :key="file.pdf_path">
               <td>{{ fileName(file.pdf_path) }}</td>
               <td>{{ file.kind ? $t('kind_' + file.kind) : '–' }}</td>
               <td>
@@ -156,6 +230,21 @@ function formatSize(numBytes) {
 <style scoped>
 .table-scroll {
   overflow-x: auto;
+}
+
+/* Strip Pico's button styling so sortable headers look like plain header text. */
+.sort-button {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  box-shadow: none;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  white-space: nowrap;
+  cursor: pointer;
 }
 
 /* Compact icon-only variant of Pico's default (full-width, padded) button. */

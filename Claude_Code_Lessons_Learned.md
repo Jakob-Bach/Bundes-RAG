@@ -56,4 +56,4 @@
     - In the end, was in issue with missing setting `"hasTrustDialogAccepted": true` in the user's `.claude.json`
     - In particular, repo's directory was listed multiple times in file (with different slashes and capitalization), depending on how opened
   - Claude often used compound commands (two commands separated by `;`) or slight variations not matching the whitelist
-    - Reminded several times to avoid this, Claude itself wrote this to memory thrice (first and second memory apparently insufficient)
+    - Reminded several times to avoid this, Claude itself wrote this to memory four times
