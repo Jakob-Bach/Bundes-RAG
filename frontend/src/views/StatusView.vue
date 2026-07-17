@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { deleteFile, getStatus } from '../api'
+import { sortableColumns, useStatusSort } from '../statusSort'
 
 const { t } = useI18n()
 const status = ref(null)
@@ -9,29 +10,7 @@ const error = ref(null)
 // pdf_path of the file whose deletion is in flight; null when idle.
 const deleting = ref(null)
 
-const sortableColumns = [
-  { key: 'file', label: 'status_th_file' },
-  { key: 'kind', label: 'status_th_kind' },
-  { key: 'status', label: 'status_th_status' },
-  { key: 'title', label: 'status_th_title' },
-  { key: 'dokumentnummer', label: 'status_th_dokumentnummer' },
-  { key: 'datum', label: 'status_th_datum' },
-  { key: 'pages', label: 'status_th_pages' },
-  { key: 'chunks', label: 'status_th_chunks' },
-  { key: 'doc_id', label: 'status_th_doc_id' },
-]
-
-const sortKey = ref(null)
-const sortAscending = ref(true)
-
-function toggleSort(key) {
-  if (sortKey.value === key) {
-    sortAscending.value = !sortAscending.value
-  } else {
-    sortKey.value = key
-    sortAscending.value = true
-  }
-}
+const { sortKey, sortAscending, toggleSort } = useStatusSort()
 
 function sortValue(file, key) {
   switch (key) {

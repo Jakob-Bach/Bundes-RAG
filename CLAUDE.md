@@ -163,7 +163,13 @@ per-file table that also includes each file's document kind
 (`FileStatus.kind`, read back from its endpoint subdirectory under
 `data/pdfs/` — file names alone can collide across endpoints, e.g.
 Drucksache and BT-Plenarprotokoll 21/5 are both `21_5.pdf`) and the
-per-document metadata. `run_index` starts with the same `_scan_documents`
+per-document metadata. The web table's columns are click-sortable; the sort
+choice deliberately lives outside the component as module-scope refs in
+`frontend/src/statusSort.js` (so it survives tab switches, which destroy the
+view) and is persisted to `localStorage` under `bundesrag.status_sort` (so it
+survives reloads; invalid stored values fall back to unsorted). Sorting is
+purely client-side — `GET /api/status` is unaffected. `run_index` starts with
+the same `_scan_documents`
 call, using the pending entries it returns alongside the summary, so
 pruning and counting live in one place.
 

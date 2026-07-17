@@ -118,9 +118,11 @@ manifest for not-yet-indexed ones, whose page count is read from the PDF
 itself; the chunk count only exists after indexing.
 Pending entries whose PDF was deleted manually are dropped from the manifest
 (both `status` and `index` do this), so a missing file doesn't block indexing.
-The web UI's per-file table also offers a delete button per document that
-removes the PDF from disk and, if indexed, its chunks from the vector store
-(after a confirmation dialog).
+The web UI's per-file table can be sorted by clicking a column header
+(clicking again reverses the order), and the chosen sort order is remembered
+across page switches and reloads. The table also offers a delete button per
+document that removes the PDF from disk and, if indexed, its chunks from the
+vector store (after a confirmation dialog).
 
 ### Clear all data
 
