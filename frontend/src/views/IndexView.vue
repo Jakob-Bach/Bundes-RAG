@@ -1,6 +1,7 @@
 <script setup>
 import { onUnmounted, ref } from 'vue'
 import { cancelIndexJob, getIndexJob, startIndex } from '../api'
+import UsageStats from '../components/UsageStats.vue'
 
 const job = ref(null)
 const error = ref(null)
@@ -77,14 +78,17 @@ onUnmounted(stopPolling)
           }}</small>
         </template>
       </template>
-      <p v-else-if="job.status === 'done'">
-        {{
-          $t('index_done', {
-            num_documents: job.result.num_documents,
-            num_chunks: job.result.num_chunks,
-          })
-        }}
-      </p>
+      <template v-else-if="job.status === 'done'">
+        <p>
+          {{
+            $t('index_done', {
+              num_documents: job.result.num_documents,
+              num_chunks: job.result.num_chunks,
+            })
+          }}
+        </p>
+        <UsageStats :usage="job.result.usage" />
+      </template>
       <p v-else-if="job.status === 'cancelled'">{{ $t('operation_cancelled') }}</p>
       <p v-else-if="job.status === 'error'">{{ $t('error_prefix', { error: job.error }) }}</p>
 

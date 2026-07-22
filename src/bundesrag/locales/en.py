@@ -108,4 +108,19 @@ MESSAGES = {
     "step_search_passages": "Searching passages",
     "unexpected_error": "An unexpected error occurred. See the log file for details.",
     "unknown_document": "Unknown document",
+    "usage_chat": (
+        "  Chat: {input_tokens} input + {output_tokens} output tokens ({num_calls} call(s))"
+    ),
+    "usage_cost": "  Estimated cost: {cost} {currency}",
+    "usage_cost_suffix": ", ≈ {cost} {currency}",
+    "usage_embedding": "  Embeddings: {tokens} tokens ({num_calls} call(s))",
+    "usage_header": "Mistral API usage:",
+    "usage_op_ask": "Ask",
+    "usage_op_download": "Download",
+    "usage_op_index": "Indexing",
+    "usage_time": "  API time: {seconds} s",
+    "usage_totals_header": "Total Mistral API usage:",
+    "usage_totals_line": (
+        "  {operation}: {tokens} tokens (operations: {num_operations}, API time: {seconds} s)"
+    ),
 }

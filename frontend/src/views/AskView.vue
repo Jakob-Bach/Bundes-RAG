@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { ask } from '../api'
+import UsageStats from '../components/UsageStats.vue'
 
 const question = ref('')
 const result = ref(null)
@@ -112,6 +113,7 @@ function pdfLink(source) {
           </li>
         </ul>
       </footer>
+      <UsageStats :usage="result.usage" />
     </article>
   </section>
 </template>

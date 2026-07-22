@@ -24,6 +24,15 @@ class Settings(BaseSettings):
     chunk_size: int = 1000
     chunk_overlap: int = 150
 
+    # Prices per million tokens for the estimated-cost statistic; the defaults
+    # match Mistral's published EUR prices for the default models above
+    # (mistral-large-latest / mistral-embed). Override them when using other
+    # models, or unset them (empty value in .env) to hide the cost estimate.
+    chat_input_price_per_mtok: float | None = 0.44
+    chat_output_price_per_mtok: float | None = 1.3
+    embedding_price_per_mtok: float | None = 0.1
+    price_currency: str = "EUR"
+
     @property
     def pdf_dir(self) -> Path:
         return self.data_dir / "pdfs"

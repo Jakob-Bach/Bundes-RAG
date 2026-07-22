@@ -2,6 +2,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
+from bundesrag.config import Settings
 from bundesrag.i18n import t
 from bundesrag.ingestion.pipeline import (
     DownloadAborted,
@@ -38,6 +39,7 @@ from bundesrag.web.schemas import (
     JobResponse,
     PendingInputResponse,
     RespondRequest,
+    usage_response,
 )
 
 router = APIRouter()
@@ -45,17 +47,20 @@ router = APIRouter()
 logger = logging.getLogger(LOGGER_NAME)
 
 
-def _job_response(job: Job) -> JobResponse:
+def _job_response(job: Job, settings: Settings) -> JobResponse:
     result = None
     if isinstance(job.result, DownloadSummary):
         result = DownloadSummaryResponse(
             num_documents=job.result.num_documents,
             num_failed=job.result.num_failed,
             num_skipped=job.result.num_skipped,
+            usage=usage_response(job.result.usage, settings),
         )
     elif isinstance(job.result, IndexSummary):
         result = IndexSummaryResponse(
-            num_documents=job.result.num_documents, num_chunks=job.result.num_chunks
+            num_documents=job.result.num_documents,
+            num_chunks=job.result.num_chunks,
+            usage=usage_response(job.result.usage, settings),
         )
     return JobResponse(
         id=job.id,
@@ -164,12 +169,12 @@ def start_download(
         return summary
 
     job_manager.run_in_background(job, target)
-    return _job_response(job)
+    return _job_response(job, settings)
 
 
 @router.get("/download/{job_id}", response_model=JobResponse)
-def get_download_job(job_id: str, job_manager: JobManagerDep) -> JobResponse:
-    return _job_response(_get_job_or_404(job_manager, job_id))
+def get_download_job(job_id: str, job_manager: JobManagerDep, settings: SettingsDep) -> JobResponse:
+    return _job_response(_get_job_or_404(job_manager, job_id), settings)
 
 
 @router.post("/download/{job_id}/respond", status_code=204)
@@ -229,12 +234,12 @@ def start_index(
         return summary
 
     job_manager.run_in_background(job, target)
-    return _job_response(job)
+    return _job_response(job, settings)
 
 
 @router.get("/index/{job_id}", response_model=JobResponse)
-def get_index_job(job_id: str, job_manager: JobManagerDep) -> JobResponse:
-    return _job_response(_get_job_or_404(job_manager, job_id))
+def get_index_job(job_id: str, job_manager: JobManagerDep, settings: SettingsDep) -> JobResponse:
+    return _job_response(_get_job_or_404(job_manager, job_id), settings)
 
 
 @router.post("/index/{job_id}/cancel", status_code=204)

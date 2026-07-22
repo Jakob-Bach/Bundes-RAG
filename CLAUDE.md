@@ -217,9 +217,46 @@ status/clear/single-file delete) skip it; `index` and `ask` need real
 embeddings and keep the default.
 
 **Config** (`config.py: Settings`): a `pydantic-settings` `BaseSettings`
-loading from `.env`; holds API keys, model names, the output `language`, and
-chunk/retrieval tuning knobs. `data_dir` defaults to `./data`, with
-`pdf_dir`/`chroma_dir`/`log_file` derived properties.
+loading from `.env`; holds API keys, model names, the output `language`,
+chunk/retrieval tuning knobs, and the per-million-token prices plus currency
+label for the estimated-cost statistic (`*_price_per_mtok`,
+`price_currency`; a `None` price suppresses the estimate). `data_dir`
+defaults to `./data`, with `pdf_dir`/`chroma_dir`/`log_file` derived
+properties.
+
+**Usage tracking** (`usage.py`): every pipeline that calls the Mistral API
+creates a `UsageTracker` and reports its `OperationUsage` (chat input/output
+tokens, embedding tokens, call counts, wall time spent waiting on the API)
+on its result (`DownloadSummary.usage`, `IndexSummary.usage`,
+`AnswerResult.usage`). Chat calls are read from the response's
+`usage_metadata` (`UsageTracker.record_chat`; non-Mapping values from test
+fakes are ignored) — the query agent's structured LLM is built with
+`with_structured_output(..., include_raw=True)` so the raw `AIMessage`
+stays available, which is why `StructuredLlm.invoke` may return either a
+plain `QueryAgentResult` (test stubs) or the include_raw dict, and why
+`build_query` re-raises a returned `parsing_error`. Embedding usage can't
+come from LangChain (it discards the embeddings API's `usage` field), so
+`UsageTracker.track_embeddings` is a context manager that temporarily
+attaches httpx event hooks to the `MistralAIEmbeddings` sync client and
+reads each response's `usage` — a no-op for vector stores without a real
+httpx client (fakes, `with_embeddings=False`). Each pipeline calls
+`record_operation(settings, kind, usage)` in a `finally` (kinds:
+`OPERATION_KINDS` = download/index/ask), which logs the numbers and
+accumulates them per kind in `data/usage_stats.json` (`UsageTotals`, i.e.
+`OperationUsage` + `num_operations`; corrupt file degrades to empty,
+operations with zero API calls are skipped, and `clear` deliberately leaves
+the file alone — it tracks spend, not document state). `estimate_cost`
+turns an `OperationUsage` into a cost via the price settings (None when a
+needed price is unset). Display: the CLI prints a localized block after
+each operation (`cli._echo_usage`) and per-kind all-time totals in `status`
+(from `StatusSummary.usage_totals`, filled by `run_status` via
+`load_usage_totals`); the web API returns the same as
+`UsageResponse`/`UsageTotalsResponse` (built in `web/schemas.py`
+`usage_response`/`usage_totals_response`, cost computed server-side; `None`
+when the operation made no API call) on ask/job results and
+`GET /api/status`, rendered by the SPA's `UsageStats.vue` component and a
+totals block in the status view. The `usage_*` locale keys exist in all
+four catalogs (Python and JS).
 
 **i18n** (`i18n.py`, `locales/`): all user-facing runtime strings go through
 `t(key, **kwargs)`, which looks them up in `locales/de.py` / `locales/en.py`

@@ -84,13 +84,18 @@ def test_download_happy_path(client, settings, query_agent, dip_client):
     assert response.status_code == 204
 
     body = _poll_job(client, job_id, lambda b: b["status"] == "done")
-    assert body["result"] == {"num_documents": 1, "num_failed": 0, "num_skipped": 0}
+    assert body["result"] == {
+        "num_documents": 1,
+        "num_failed": 0,
+        "num_skipped": 0,
+        "usage": None,
+    }
     assert len(load_pending(settings)) == 1
     dip_client.close.assert_called_once()
 
 
 def test_download_confirm_filters_round_trip(client, query_agent, dip_client):
-    def fake_build_query(nl_prompt, ask_user, confirm_filters):
+    def fake_build_query(nl_prompt, ask_user, confirm_filters, usage=None):
         assert confirm_filters(FILTERS) is True
         return FILTERS
 
@@ -114,7 +119,7 @@ def test_download_confirm_filters_round_trip(client, query_agent, dip_client):
 
 
 def test_download_ask_user_round_trip(client, query_agent, dip_client):
-    def fake_build_query(nl_prompt, ask_user, confirm_filters):
+    def fake_build_query(nl_prompt, ask_user, confirm_filters, usage=None):
         assert ask_user("Welche Wahlperiode?") == "die 21."
         return FILTERS
 

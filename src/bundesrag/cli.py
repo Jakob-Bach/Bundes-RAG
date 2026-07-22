@@ -18,6 +18,7 @@ from bundesrag.logging_config import LOGGER_NAME, setup_logging
 from bundesrag.query_agent.agent import create_query_agent, format_filters
 from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.rag.answer_agent import answer_question, create_chat_llm
+from bundesrag.usage import OPERATION_KINDS, OperationUsage, estimate_cost
 from bundesrag.vectorstore import get_vectorstore
 
 # Help text is rendered from the locale files at import time (the command
@@ -60,6 +61,30 @@ def _confirm_filters(filters: DipQueryFilters) -> bool:
 
 def _echo_index_counts(counts: IndexCounts) -> None:
     typer.echo(t("index_counts", num_to_index=counts.num_to_index, num_indexed=counts.num_indexed))
+
+
+def _echo_usage(usage: OperationUsage, settings: Settings) -> None:
+    """Prints an operation's Mistral usage; silent when no API call was made."""
+    if not usage.has_usage:
+        return
+    typer.echo(t("usage_header"))
+    if usage.chat_calls:
+        typer.echo(
+            t(
+                "usage_chat",
+                input_tokens=usage.chat_input_tokens,
+                output_tokens=usage.chat_output_tokens,
+                num_calls=usage.chat_calls,
+            )
+        )
+    if usage.embedding_calls:
+        typer.echo(
+            t("usage_embedding", tokens=usage.embedding_tokens, num_calls=usage.embedding_calls)
+        )
+    typer.echo(t("usage_time", seconds=f"{usage.llm_seconds:.1f}"))
+    cost = estimate_cost(usage, settings)
+    if cost is not None:
+        typer.echo(t("usage_cost", cost=f"{cost:.4f}", currency=settings.price_currency))
 
 
 def _confirm_count(counts: DownloadCounts) -> int:
@@ -115,6 +140,7 @@ def download(prompt: str) -> None:
         typer.echo(t("download_skipped_existing", num_skipped=summary.num_skipped))
     if summary.num_failed:
         typer.echo(t("download_partial_failure", num_failed=summary.num_failed))
+    _echo_usage(summary.usage, settings)
 
 
 @app.command(help=t("index_help"))
@@ -133,6 +159,7 @@ def index() -> None:
         "index succeeded: %d documents, %d chunks", summary.num_documents, summary.num_chunks
     )
     typer.echo(t("index_done", num_documents=summary.num_documents, num_chunks=summary.num_chunks))
+    _echo_usage(summary.usage, settings)
 
 
 @app.command(help=t("clear_help"))
@@ -194,6 +221,23 @@ def status() -> None:
         )
     typer.echo(t("status_pdf_size", size=_format_size(summary.pdf_size_bytes)))
     typer.echo(t("status_vectorstore_size", size=_format_size(summary.vectorstore_size_bytes)))
+    if summary.usage_totals:
+        typer.echo(t("usage_totals_header"))
+        for operation in OPERATION_KINDS:
+            totals = summary.usage_totals.get(operation)
+            if totals is None or not totals.has_usage:
+                continue
+            line = t(
+                "usage_totals_line",
+                operation=t(f"usage_op_{operation}"),
+                tokens=totals.total_tokens,
+                num_operations=totals.num_operations,
+                seconds=f"{totals.llm_seconds:.1f}",
+            )
+            cost = estimate_cost(totals, settings)
+            if cost is not None:
+                line += t("usage_cost_suffix", cost=f"{cost:.4f}", currency=settings.price_currency)
+            typer.echo(line)
     typer.echo(t("status_files_header"))
     for file in summary.files:
         status_label = t("status_file_indexed") if file.indexed else t("status_file_not_indexed")
@@ -234,6 +278,7 @@ def ask(question: str) -> None:
     typer.echo(t("sources_header"))
     for source in result.sources:
         typer.echo(f"  [{source.index}] {source.citation}")
+    _echo_usage(result.usage, settings)
 
 
 if __name__ == "__main__":

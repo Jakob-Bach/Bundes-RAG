@@ -87,7 +87,7 @@ def test_index_without_pending_documents(client, vectorstore):
 
     body = _poll_job(client, job_id, lambda b: b["status"] == "done")
 
-    assert body["result"] == {"num_documents": 0, "num_chunks": 0}
+    assert body["result"] == {"num_documents": 0, "num_chunks": 0, "usage": None}
     vectorstore.add_documents.assert_not_called()
 
 
@@ -102,7 +102,7 @@ def test_index_processes_pending_documents(client, settings, vectorstore):
 
     body = _poll_job(client, job_id, lambda b: b["status"] == "done")
     assert body["counts"] == {"num_to_index": 1, "num_indexed": 1}
-    assert body["result"] == {"num_documents": 1, "num_chunks": 1}
+    assert body["result"] == {"num_documents": 1, "num_chunks": 1, "usage": None}
     assert body["progress"] == {"current": 1, "total": 1}
     vectorstore.add_documents.assert_called_once()
     assert load_pending(settings) == []

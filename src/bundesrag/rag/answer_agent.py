@@ -1,5 +1,6 @@
+import time
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Protocol
 
 from langchain_chroma import Chroma
@@ -10,6 +11,7 @@ from bundesrag.i18n import t
 from bundesrag.locales import LANGUAGE_NAMES
 from bundesrag.progress import step
 from bundesrag.rag.retriever import retrieve
+from bundesrag.usage import OperationUsage, UsageTracker, record_operation
 
 SYSTEM_PROMPT_TEMPLATE = """\
 Du beantwortest Fragen zu deutschen Bundestagsdokumenten ausschließlich auf \
@@ -50,6 +52,8 @@ class Source:
 class AnswerResult:
     answer_text: str
     sources: list[Source]
+    # Mistral usage of this ask: one query embedding + one chat call.
+    usage: OperationUsage = field(default_factory=OperationUsage)
 
 
 def format_context(docs: Sequence[Document]) -> str:
@@ -80,18 +84,27 @@ def citation_for(doc: Document, score: float | None = None) -> str:
 def answer_question(
     question: str, settings: Settings, *, llm: ChatLlm, vectorstore: Chroma
 ) -> AnswerResult:
-    step(1, 2, t("step_search_passages"))
-    results = retrieve(question, vectorstore, settings.retrieval_top_k)
-    docs = [doc for doc, _ in results]
+    usage = UsageTracker()
+    # record_operation runs in a finally so a failed ask still accounts for
+    # the tokens it consumed (e.g. the query embedding before a chat error).
+    try:
+        step(1, 2, t("step_search_passages"))
+        with usage.track_embeddings(vectorstore):
+            results = retrieve(question, vectorstore, settings.retrieval_top_k)
+        docs = [doc for doc, _ in results]
 
-    step(2, 2, t("step_generate_answer"))
-    context = format_context(docs)
-    messages = [
-        {"role": "system", "content": build_system_prompt(settings.language)},
-        {"role": "user", "content": f"Kontext:\n{context}\n\nFrage: {question}"},
-    ]
-    response = llm.invoke(messages)
-    answer_text = getattr(response, "content", response)
+        step(2, 2, t("step_generate_answer"))
+        context = format_context(docs)
+        messages = [
+            {"role": "system", "content": build_system_prompt(settings.language)},
+            {"role": "user", "content": f"Kontext:\n{context}\n\nFrage: {question}"},
+        ]
+        start = time.perf_counter()
+        response = llm.invoke(messages)
+        usage.record_chat(response, time.perf_counter() - start)
+        answer_text = getattr(response, "content", response)
+    finally:
+        record_operation(settings, "ask", usage.usage)
 
     # One source per retrieved chunk, numbered like the context block above —
     # no deduplication, since a [n] citation in the answer must resolve to
@@ -107,7 +120,7 @@ def answer_question(
         for i, (doc, score) in enumerate(results, start=1)
     ]
 
-    return AnswerResult(answer_text=answer_text, sources=sources)
+    return AnswerResult(answer_text=answer_text, sources=sources, usage=usage.usage)
 
 
 def create_chat_llm(settings: Settings) -> ChatLlm:

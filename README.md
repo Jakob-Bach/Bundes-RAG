@@ -128,6 +128,21 @@ across page switches and reloads. The table also offers a delete button per
 document that removes the PDF from disk and, if indexed, its chunks from the
 vector store (after a confirmation dialog).
 
+### Token usage statistics
+
+Every operation that calls the Mistral API (`download`, `index`, `ask`)
+reports what it consumed, in the CLI and the web UI alike: chat input/output
+tokens and embedding tokens, the number of API calls, the wall time spent
+waiting on the Mistral API, and an estimated cost based on configurable
+per-million-token prices (see [Configuration](#configuration); the cost line
+is omitted when a needed price is unset). The same numbers are written to
+`data/bundesrag.log` and accumulated per operation type in
+`data/usage_stats.json` — aborted or failed runs still account for the
+tokens they consumed. `status` shows the all-time totals per operation type;
+their cost estimate always applies the currently configured prices, and the
+totals deliberately survive `clear` (they track API spend, not document
+state) — delete `data/usage_stats.json` to reset them.
+
 ### Clear all data
 
 ```sh
@@ -172,6 +187,12 @@ defaults):
 - `RETRIEVAL_TOP_K=5` — number of text chunks retrieved per question
 - `CHUNK_SIZE=1000` / `CHUNK_OVERLAP=150` — text-splitting parameters used
   during indexing
+- `CHAT_INPUT_PRICE_PER_MTOK=2.0` / `CHAT_OUTPUT_PRICE_PER_MTOK=6.0` /
+  `EMBEDDING_PRICE_PER_MTOK=0.1` — prices per million tokens for the
+  estimated-cost statistic; the defaults match Mistral's published EUR
+  prices for the default models, so adjust them when changing models (or
+  set them empty to hide the cost estimate)
+- `PRICE_CURRENCY=EUR` — currency label shown next to cost estimates
 
 ## Data storage
 
@@ -180,6 +201,8 @@ defaults):
 - `data/indexed_docs.json` — per-document metadata of indexed PDFs, shown by
   `status` without scanning the vector store
 - `data/chroma/` — the persisted vector store
+- `data/usage_stats.json` — all-time Mistral token usage per operation type,
+  shown by `status`; not reset by `clear`
 - `data/bundesrag.log` — log file; errors are detailed here (with tracebacks),
   while the CLI/web UI only shows a generic error message
 

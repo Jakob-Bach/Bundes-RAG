@@ -1,3 +1,4 @@
+import time
 from collections.abc import Callable
 from datetime import date
 from typing import TYPE_CHECKING, Protocol
@@ -5,6 +6,7 @@ from typing import TYPE_CHECKING, Protocol
 from bundesrag.i18n import t
 from bundesrag.query_agent.prompts import build_system_prompt
 from bundesrag.query_agent.schema import DipQueryFilters, QueryAgentResult
+from bundesrag.usage import UsageTracker
 
 if TYPE_CHECKING:
     from bundesrag.config import Settings
@@ -17,7 +19,11 @@ class QueryAgentError(RuntimeError):
 
 
 class StructuredLlm(Protocol):
-    def invoke(self, messages: list[dict]) -> QueryAgentResult: ...
+    # Returns either a QueryAgentResult directly, or — with LangChain's
+    # `with_structured_output(..., include_raw=True)`, which create_query_agent
+    # uses so token usage stays readable — a dict with "raw" (the AIMessage),
+    # "parsed" (the QueryAgentResult) and "parsing_error" keys.
+    def invoke(self, messages: list[dict]) -> QueryAgentResult | dict: ...
 
 
 def format_filters(filters: DipQueryFilters) -> str:
@@ -65,13 +71,24 @@ class QueryAgent:
         nl_prompt: str,
         ask_user: Callable[[str], str],
         confirm_filters: Callable[[DipQueryFilters], bool],
+        usage: UsageTracker | None = None,
     ) -> DipQueryFilters:
         messages = [
             {"role": "system", "content": build_system_prompt(self._today, self._language)},
             {"role": "user", "content": nl_prompt},
         ]
         for _ in range(MAX_CLARIFICATION_ROUNDS):
+            start = time.perf_counter()
             result = self._llm.invoke(messages)
+            if usage is not None:
+                raw = result.get("raw") if isinstance(result, dict) else None
+                usage.record_chat(raw, time.perf_counter() - start)
+            if isinstance(result, dict):
+                # include_raw=True mode: parsing errors are returned instead of
+                # raised — re-raise to keep the pre-include_raw behavior.
+                if result.get("parsing_error") is not None:
+                    raise result["parsing_error"]
+                result = result["parsed"]
             if result.filters is not None:
                 if confirm_filters(result.filters):
                     return result.filters
@@ -90,4 +107,7 @@ def create_query_agent(settings: "Settings") -> QueryAgent:
     from langchain_mistralai import ChatMistralAI
 
     llm = ChatMistralAI(model=settings.chat_model, api_key=settings.mistral_api_key)
-    return QueryAgent(llm.with_structured_output(QueryAgentResult), language=settings.language)
+    # include_raw=True keeps the raw AIMessage next to the parsed result so
+    # build_query can read the token usage_metadata of each call.
+    structured_llm = llm.with_structured_output(QueryAgentResult, include_raw=True)
+    return QueryAgent(structured_llm, language=settings.language)

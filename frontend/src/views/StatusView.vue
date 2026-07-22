@@ -12,6 +12,28 @@ const deleting = ref(null)
 
 const { sortKey, sortAscending, toggleSort } = useStatusSort()
 
+// One rendered line per operation kind with recorded Mistral usage, in the
+// backend's canonical order; the cost suffix is omitted when the backend
+// sent no cost estimate (price settings unset).
+const usageLines = computed(() => {
+  const totals = status.value?.usage_totals ?? {}
+  return ['download', 'index', 'ask']
+    .filter((operation) => totals[operation])
+    .map((operation) => {
+      const usage = totals[operation]
+      let line = t('usage_totals_line', {
+        operation: t('usage_op_' + operation),
+        tokens: usage.total_tokens,
+        num_operations: usage.num_operations,
+        seconds: usage.llm_seconds.toFixed(1),
+      })
+      if (usage.cost != null) {
+        line += t('usage_cost_suffix', { cost: usage.cost.toFixed(4), currency: usage.currency })
+      }
+      return line
+    })
+})
+
 function sortValue(file, key) {
   switch (key) {
     case 'file':
@@ -112,6 +134,11 @@ function formatSize(numBytes) {
         {{ $t('status_num_chunks', { count: status.num_chunks }) }}<br />
         {{ $t('status_pdf_size', { size: formatSize(status.pdf_size_bytes) }) }}<br />
         {{ $t('status_vectorstore_size', { size: formatSize(status.vectorstore_size_bytes) }) }}
+      </p>
+      <p v-if="usageLines.length">
+        <strong>{{ $t('usage_totals_header') }}</strong
+        ><br />
+        <template v-for="(line, i) in usageLines" :key="i">{{ line }}<br /></template>
       </p>
       <p v-if="status.num_chunks !== status.num_manifest_chunks">
         <strong>{{

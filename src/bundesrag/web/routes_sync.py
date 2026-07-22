@@ -24,6 +24,8 @@ from bundesrag.web.schemas import (
     FileStatusResponse,
     SourceResponse,
     StatusResponse,
+    usage_response,
+    usage_totals_response,
 )
 
 router = APIRouter()
@@ -52,6 +54,7 @@ def ask(
     logger.info("web ask succeeded: %d sources", len(result.sources))
     return AskResponse(
         answer_text=result.answer_text,
+        usage=usage_response(result.usage, settings),
         sources=[
             SourceResponse(
                 index=source.index,
@@ -123,6 +126,7 @@ def status(settings: SettingsDep, vectorstore: MetadataVectorstoreDep) -> Status
         num_manifest_chunks=summary.num_manifest_chunks,
         pdf_size_bytes=summary.pdf_size_bytes,
         vectorstore_size_bytes=summary.vectorstore_size_bytes,
+        usage_totals=usage_totals_response(summary.usage_totals, settings),
         files=[
             FileStatusResponse(
                 pdf_path=str(file.pdf_path),

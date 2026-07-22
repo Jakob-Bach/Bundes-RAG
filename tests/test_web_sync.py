@@ -6,6 +6,7 @@ from pypdf import PdfWriter
 from bundesrag.config import Settings
 from bundesrag.i18n import set_language, t
 from bundesrag.ingestion.manifest import PendingDocument, add_pending
+from bundesrag.usage import OperationUsage, record_operation
 from bundesrag.web.app import create_app
 from bundesrag.web.dependencies import (
     get_chat_llm,
@@ -70,6 +71,11 @@ def test_ask_returns_answer_with_sources(client, vectorstore, chat_llm):
     assert source["text"] == "Auszug"
     assert source["page"] == 3
     assert source["source_url"] == "https://example.org/19_1.pdf"
+    # The fake LLM response carries no usage_metadata, but the chat call is
+    # still counted and reported with the configured currency.
+    assert body["usage"]["chat_calls"] == 1
+    assert body["usage"]["total_tokens"] == 0
+    assert body["usage"]["currency"] == "EUR"
 
 
 def test_ask_returns_500_on_unexpected_error(client, vectorstore, chat_llm):
@@ -178,6 +184,7 @@ def test_status_without_downloads_is_empty(client, vectorstore):
         "pdf_size_bytes": 0,
         "vectorstore_size_bytes": 0,
         "files": [],
+        "usage_totals": {},
     }
 
 
@@ -273,6 +280,24 @@ def test_status_reports_chunk_count_mismatch(client, vectorstore):
     body = response.json()
     assert body["num_chunks"] == 5
     assert body["num_manifest_chunks"] == 0
+
+
+def test_status_reports_usage_totals(client, settings, vectorstore):
+    settings.chat_input_price_per_mtok = 2.0
+    settings.chat_output_price_per_mtok = 6.0
+    record_operation(
+        settings,
+        "ask",
+        OperationUsage(chat_input_tokens=10, chat_output_tokens=2, chat_calls=1, llm_seconds=1.0),
+    )
+
+    response = client.get("/api/status")
+
+    assert response.status_code == 200
+    totals = response.json()["usage_totals"]
+    assert totals["ask"]["num_operations"] == 1
+    assert totals["ask"]["total_tokens"] == 12
+    assert totals["ask"]["cost"] == pytest.approx(10 / 1e6 * 2.0 + 2 / 1e6 * 6.0)
 
 
 def test_status_returns_500_on_unexpected_error(client, vectorstore):

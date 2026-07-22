@@ -1,6 +1,9 @@
+from types import SimpleNamespace
+
 from langchain_core.documents import Document
 
 from bundesrag.rag.answer_agent import answer_question, citation_for, format_context
+from bundesrag.usage import load_usage_totals
 
 
 def _doc(text: str, label: str, page: int, dokumentnummer: str) -> Document:
@@ -69,3 +72,24 @@ def test_answer_question_numbers_sources_like_context(settings, mocker):
     messages = llm.invoke.call_args[0][0]
     assert messages[0]["role"] == "system"
     assert "Worum geht es?" in messages[1]["content"]
+
+
+def test_answer_question_records_token_usage(settings, mocker):
+    vectorstore = mocker.Mock()
+    vectorstore.similarity_search_with_score.return_value = [
+        (_doc("Erster.", "Antrag 19/1", 1, "19/1"), 0.1)
+    ]
+    llm = mocker.Mock()
+    llm.invoke.return_value = SimpleNamespace(
+        content="Die Antwort.", usage_metadata={"input_tokens": 11, "output_tokens": 4}
+    )
+
+    result = answer_question("Worum geht es?", settings, llm=llm, vectorstore=vectorstore)
+
+    assert result.usage.chat_calls == 1
+    assert result.usage.chat_input_tokens == 11
+    assert result.usage.chat_output_tokens == 4
+    # The operation is also accumulated into the persisted all-time totals.
+    totals = load_usage_totals(settings)
+    assert totals["ask"].num_operations == 1
+    assert totals["ask"].chat_input_tokens == 11

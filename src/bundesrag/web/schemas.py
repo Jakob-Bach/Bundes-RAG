@@ -2,6 +2,9 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from bundesrag.config import Settings
+from bundesrag.usage import OperationUsage, UsageTotals, estimate_cost
+
 
 class ConfigResponse(BaseModel):
     language: str
@@ -11,15 +14,69 @@ class DownloadRequest(BaseModel):
     prompt: str
 
 
+class UsageResponse(BaseModel):
+    """Mistral usage of one operation, plus the server-side cost estimate.
+
+    `cost` is None when a needed price setting is unset; the SPA then omits
+    the cost line.
+    """
+
+    chat_input_tokens: int
+    chat_output_tokens: int
+    chat_calls: int
+    embedding_tokens: int
+    embedding_calls: int
+    llm_seconds: float
+    total_tokens: int
+    cost: float | None = None
+    currency: str
+
+
+class UsageTotalsResponse(UsageResponse):
+    """All-time accumulated usage of one operation kind (status view)."""
+
+    num_operations: int
+
+
+def usage_response(usage: OperationUsage, settings: Settings) -> UsageResponse | None:
+    """Build the response for an operation's usage; None when nothing was used
+    (the SPA then shows no usage block at all)."""
+    if not usage.has_usage:
+        return None
+    return UsageResponse(
+        **usage.model_dump(),
+        total_tokens=usage.total_tokens,
+        cost=estimate_cost(usage, settings),
+        currency=settings.price_currency,
+    )
+
+
+def usage_totals_response(
+    totals: dict[str, UsageTotals], settings: Settings
+) -> dict[str, UsageTotalsResponse]:
+    return {
+        operation: UsageTotalsResponse(
+            **entry.model_dump(),
+            total_tokens=entry.total_tokens,
+            cost=estimate_cost(entry, settings),
+            currency=settings.price_currency,
+        )
+        for operation, entry in totals.items()
+        if entry.has_usage
+    }
+
+
 class DownloadSummaryResponse(BaseModel):
     num_documents: int
     num_failed: int
     num_skipped: int
+    usage: UsageResponse | None = None
 
 
 class IndexSummaryResponse(BaseModel):
     num_documents: int
     num_chunks: int
+    usage: UsageResponse | None = None
 
 
 class IndexCountsResponse(BaseModel):
@@ -75,6 +132,8 @@ class StatusResponse(BaseModel):
     pdf_size_bytes: int
     vectorstore_size_bytes: int
     files: list[FileStatusResponse]
+    # All-time Mistral usage per operation kind ("download"/"index"/"ask").
+    usage_totals: dict[str, UsageTotalsResponse] = {}
 
 
 class AskRequest(BaseModel):
@@ -99,6 +158,7 @@ class SourceResponse(BaseModel):
 class AskResponse(BaseModel):
     answer_text: str
     sources: list[SourceResponse]
+    usage: UsageResponse | None = None
 
 
 class PendingInputResponse(BaseModel):

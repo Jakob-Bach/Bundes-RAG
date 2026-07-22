@@ -1,6 +1,7 @@
 <script setup>
 import { onUnmounted, ref } from 'vue'
 import { cancelDownloadJob, getDownloadJob, respondToDownloadJob, startDownload } from '../api'
+import UsageStats from '../components/UsageStats.vue'
 
 const prompt = ref('')
 const job = ref(null)
@@ -143,15 +144,18 @@ onUnmounted(stopPolling)
         </form>
       </article>
 
-      <p v-else-if="job.status === 'done'">
-        {{ $t('download_done', { num_documents: job.result.num_documents }) }}
-        <template v-if="job.result.num_skipped">
-          {{ $t('download_skipped_existing', { num_skipped: job.result.num_skipped }) }}
-        </template>
-        <template v-if="job.result.num_failed">
-          {{ $t('download_partial_failure', { num_failed: job.result.num_failed }) }}
-        </template>
-      </p>
+      <template v-else-if="job.status === 'done'">
+        <p>
+          {{ $t('download_done', { num_documents: job.result.num_documents }) }}
+          <template v-if="job.result.num_skipped">
+            {{ $t('download_skipped_existing', { num_skipped: job.result.num_skipped }) }}
+          </template>
+          <template v-if="job.result.num_failed">
+            {{ $t('download_partial_failure', { num_failed: job.result.num_failed }) }}
+          </template>
+        </p>
+        <UsageStats :usage="job.result.usage" />
+      </template>
       <p v-else-if="job.status === 'cancelled'">{{ $t('operation_cancelled') }}</p>
       <p v-else-if="job.status === 'error'">{{ $t('error_prefix', { error: job.error }) }}</p>
 

@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import httpx
@@ -28,6 +28,13 @@ from bundesrag.ingestion.pdf_loader import citation_label, load_pdf_as_chunks, p
 from bundesrag.progress import step
 from bundesrag.query_agent.agent import QueryAgent
 from bundesrag.query_agent.schema import DipQueryFilters
+from bundesrag.usage import (
+    OperationUsage,
+    UsageTotals,
+    UsageTracker,
+    load_usage_totals,
+    record_operation,
+)
 from bundesrag.vectorstore import add_documents, collection_chunk_count
 
 logger = logging.getLogger(__name__)
@@ -47,6 +54,8 @@ class DownloadSummary:
     num_documents: int
     num_failed: int = 0
     num_skipped: int = 0
+    # Mistral usage of the query-agent chat calls of this run.
+    usage: OperationUsage = field(default_factory=OperationUsage)
 
 
 @dataclass
@@ -61,6 +70,8 @@ class IndexCounts:
 class IndexSummary:
     num_documents: int
     num_chunks: int
+    # Mistral usage of the embeddings calls of this run.
+    usage: OperationUsage = field(default_factory=OperationUsage)
 
 
 @dataclass
@@ -91,6 +102,9 @@ class StatusSummary:
     num_manifest_chunks: int = 0
     pdf_size_bytes: int = 0
     vectorstore_size_bytes: int = 0
+    # All-time Mistral usage per operation kind ("download"/"index"/"ask"),
+    # accumulated in data/usage_stats.json by record_operation.
+    usage_totals: dict[str, UsageTotals] = field(default_factory=dict)
 
 
 class DownloadAborted(RuntimeError):
@@ -131,8 +145,43 @@ def run_download(
     on_progress: ProgressCallback | None = None,
     should_cancel: CancelCheck | None = None,
 ) -> DownloadSummary:
+    # record_operation runs in a finally so aborted/cancelled runs still
+    # account for the query-agent tokens they consumed.
+    usage = UsageTracker()
+    try:
+        return _run_download(
+            nl_prompt,
+            settings,
+            query_agent=query_agent,
+            dip_client=dip_client,
+            ask_user=ask_user,
+            confirm_count=confirm_count,
+            confirm_filters=confirm_filters,
+            on_progress=on_progress,
+            should_cancel=should_cancel,
+            usage=usage,
+        )
+    finally:
+        record_operation(settings, "download", usage.usage)
+
+
+def _run_download(
+    nl_prompt: str,
+    settings: Settings,
+    *,
+    query_agent: QueryAgent,
+    dip_client: DipClient,
+    ask_user: Callable[[str], str],
+    confirm_count: Callable[[DownloadCounts], int],
+    confirm_filters: Callable[[DipQueryFilters], bool],
+    on_progress: ProgressCallback | None,
+    should_cancel: CancelCheck | None,
+    usage: UsageTracker,
+) -> DownloadSummary:
     step(1, 3, t("step_interpret_request"))
-    filters = query_agent.build_query(nl_prompt, ask_user=ask_user, confirm_filters=confirm_filters)
+    filters = query_agent.build_query(
+        nl_prompt, ask_user=ask_user, confirm_filters=confirm_filters, usage=usage
+    )
 
     step(2, 3, t("step_search_documents"))
     _check_cancelled(should_cancel)
@@ -201,7 +250,10 @@ def run_download(
         add_pending(settings, pending)
 
     return DownloadSummary(
-        num_documents=len(pending), num_failed=num_failed, num_skipped=num_skipped
+        num_documents=len(pending),
+        num_failed=num_failed,
+        num_skipped=num_skipped,
+        usage=usage.usage,
     )
 
 
@@ -222,31 +274,38 @@ def run_index(
     num_documents = 0
     num_chunks = 0
     _report_progress(on_progress, 0, len(pending))
-    for entry in tqdm(pending, desc="Indexieren"):
-        _check_cancelled(should_cancel)
-        meta = entry.resolve_meta()
-        chunks = load_pdf_as_chunks(
-            entry.pdf_path,
-            meta,
-            chunk_size=settings.chunk_size,
-            chunk_overlap=settings.chunk_overlap,
-        )
-        add_documents(vectorstore, chunks)
-        num_documents += 1
-        num_chunks += len(chunks)
-        # Record the document's status metadata now, while the DIP record and
-        # chunks are in hand — run_status reads it from the indexed-docs
-        # manifest instead of scanning every chunk's metadata in the vector
-        # store. Written before remove_pending so a crash in between leaves
-        # the document pending (re-indexed and re-recorded later) rather than
-        # indexed-but-unrecorded.
-        add_indexed_info(settings, entry.pdf_path, _indexed_document_info(meta, chunks))
-        # Remove right after each document so a crash/abort mid-run leaves only the
-        # not-yet-indexed documents pending, not the whole batch.
-        remove_pending(settings, entry.pdf_path)
-        _report_progress(on_progress, num_documents, len(pending))
+    # record_operation runs in a finally so cancelled/failed runs still
+    # account for the embedding tokens of the documents already processed.
+    usage = UsageTracker()
+    try:
+        with usage.track_embeddings(vectorstore):
+            for entry in tqdm(pending, desc="Indexieren"):
+                _check_cancelled(should_cancel)
+                meta = entry.resolve_meta()
+                chunks = load_pdf_as_chunks(
+                    entry.pdf_path,
+                    meta,
+                    chunk_size=settings.chunk_size,
+                    chunk_overlap=settings.chunk_overlap,
+                )
+                add_documents(vectorstore, chunks)
+                num_documents += 1
+                num_chunks += len(chunks)
+                # Record the document's status metadata now, while the DIP record and
+                # chunks are in hand — run_status reads it from the indexed-docs
+                # manifest instead of scanning every chunk's metadata in the vector
+                # store. Written before remove_pending so a crash in between leaves
+                # the document pending (re-indexed and re-recorded later) rather than
+                # indexed-but-unrecorded.
+                add_indexed_info(settings, entry.pdf_path, _indexed_document_info(meta, chunks))
+                # Remove right after each document so a crash/abort mid-run leaves only the
+                # not-yet-indexed documents pending, not the whole batch.
+                remove_pending(settings, entry.pdf_path)
+                _report_progress(on_progress, num_documents, len(pending))
+    finally:
+        record_operation(settings, "index", usage.usage)
 
-    return IndexSummary(num_documents=num_documents, num_chunks=num_chunks)
+    return IndexSummary(num_documents=num_documents, num_chunks=num_chunks, usage=usage.usage)
 
 
 def run_delete_all(settings: Settings, *, vectorstore: Chroma) -> DeleteSummary:
@@ -430,6 +489,7 @@ def run_status(settings: Settings, *, vectorstore: Chroma) -> StatusSummary:
         file.info = info_by_path.get(file.pdf_path)
     summary.pdf_size_bytes = _dir_size_bytes(settings.pdf_dir)
     summary.vectorstore_size_bytes = _dir_size_bytes(settings.chroma_dir)
+    summary.usage_totals = load_usage_totals(settings)
     return summary
 
 
