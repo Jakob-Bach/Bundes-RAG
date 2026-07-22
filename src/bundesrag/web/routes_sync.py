@@ -22,6 +22,7 @@ from bundesrag.web.schemas import (
     DeleteSummaryResponse,
     DocumentInfoResponse,
     FileStatusResponse,
+    SourceResponse,
     StatusResponse,
 )
 
@@ -49,7 +50,19 @@ def ask(
         logger.exception("web ask failed")
         raise HTTPException(status_code=500, detail=t("unexpected_error")) from None
     logger.info("web ask succeeded: %d sources", len(result.sources))
-    return AskResponse(answer_text=result.answer_text, sources=result.sources)
+    return AskResponse(
+        answer_text=result.answer_text,
+        sources=[
+            SourceResponse(
+                index=source.index,
+                citation=source.citation,
+                text=source.text,
+                page=source.page,
+                source_url=source.source_url,
+            )
+            for source in result.sources
+        ],
+    )
 
 
 @router.post("/clear", response_model=DeleteSummaryResponse)

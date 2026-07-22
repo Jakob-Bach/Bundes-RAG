@@ -53,6 +53,7 @@ export default {
   no: 'No',
   operation_cancelled: 'Operation cancelled.',
   progress_count: '{current} of {total}',
+  source_show_text: 'Show retrieved text',
   sources_header: 'Sources:',
   status_file_indexed: 'indexed',
   status_file_not_indexed: 'not indexed',

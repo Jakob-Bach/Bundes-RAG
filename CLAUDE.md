@@ -122,9 +122,17 @@ docstrings, runtime output is localized via i18n).
    names the configured answer language) to cite passages by number, to say
    explicitly when the context doesn't answer the question rather than guess,
    and to answer in `settings.language`.
-3. A deduplicated sources list (citation label, page, document number,
-   similarity score) is built from chunk metadata (`citation_for`) and
-   returned alongside the answer text.
+3. A sources list is returned alongside the answer text: one `Source` per
+   retrieved chunk — deliberately not deduplicated, since `Source.index` must
+   match the context numbering so a `[n]` in the answer resolves to exactly
+   the chunk the LLM saw as `[n]`. Each carries the formatted citation
+   (`citation_for`: label, page, document number, similarity score), the
+   retrieved chunk text, the page, and the source PDF URL. The CLI prints
+   `[n] citation` lines; the web UI (ask view) renders each `[n]` in the
+   answer as a link that scrolls to and highlights that source, links each
+   citation to the source PDF deep-linked to its page
+   (`source_url#page=N`), and shows the retrieved chunk text per source in
+   an expandable panel so users can verify the answer against it.
 
 **`status` pipeline** (`ingestion/pipeline.py: run_status`): wraps
 `_scan_documents`, which first prunes pending entries whose PDF no longer

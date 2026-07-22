@@ -81,9 +81,24 @@ class AskRequest(BaseModel):
     question: str
 
 
+class SourceResponse(BaseModel):
+    """One retrieved chunk; `index` matches the [n] citations in answer_text.
+
+    The SPA renders each [n] as a link to the source with that index, links
+    the citation to `source_url#page={page}`, and shows `text` (the retrieved
+    chunk) in an expandable panel.
+    """
+
+    index: int
+    citation: str
+    text: str
+    page: int | None = None
+    source_url: str | None = None
+
+
 class AskResponse(BaseModel):
     answer_text: str
-    sources: list[str]
+    sources: list[SourceResponse]
 
 
 class PendingInputResponse(BaseModel):

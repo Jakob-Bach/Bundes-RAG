@@ -47,7 +47,12 @@ def test_ask_returns_answer_with_sources(client, vectorstore, chat_llm):
         (
             Document(
                 page_content="Auszug",
-                metadata={"citation_label": "Ein Titel", "page": 3, "dokumentnummer": "19/1"},
+                metadata={
+                    "citation_label": "Ein Titel",
+                    "page": 3,
+                    "dokumentnummer": "19/1",
+                    "source_url": "https://example.org/19_1.pdf",
+                },
             ),
             0.25,
         )
@@ -59,7 +64,12 @@ def test_ask_returns_answer_with_sources(client, vectorstore, chat_llm):
     body = response.json()
     assert body["answer_text"] == "Die Antwort."
     assert len(body["sources"]) == 1
-    assert "Ein Titel" in body["sources"][0]
+    source = body["sources"][0]
+    assert source["index"] == 1
+    assert "Ein Titel" in source["citation"]
+    assert source["text"] == "Auszug"
+    assert source["page"] == 3
+    assert source["source_url"] == "https://example.org/19_1.pdf"
 
 
 def test_ask_returns_500_on_unexpected_error(client, vectorstore, chat_llm):

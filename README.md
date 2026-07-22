@@ -94,8 +94,12 @@ or interruption only processes what's left.
 uv run bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?"
 ```
 
-The answer is generated only from the indexed documents, and is followed by
-a "Quellen:" list naming the source document and page for each passage used.
+The answer is generated only from the indexed documents, cites passages by
+number (`[n]`), and is followed by a numbered "Quellen:" list naming the
+source document and page for each retrieved passage. In the web UI each
+`[n]` in the answer is clickable and jumps to that source, each source links
+to the original PDF opened at the cited page, and an expandable panel shows
+the retrieved text itself so the answer can be verified against it.
 
 ### Check download/index status
 

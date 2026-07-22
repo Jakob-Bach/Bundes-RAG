@@ -233,7 +233,7 @@ def ask(question: str) -> None:
     typer.echo(result.answer_text)
     typer.echo(t("sources_header"))
     for source in result.sources:
-        typer.echo(f"  - {source}")
+        typer.echo(f"  [{source.index}] {source.citation}")
 
 
 if __name__ == "__main__":

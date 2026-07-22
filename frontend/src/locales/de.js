@@ -54,6 +54,7 @@ export default {
   no: 'Nein',
   operation_cancelled: 'Vorgang abgebrochen.',
   progress_count: '{current} von {total}',
+  source_show_text: 'Textauszug anzeigen',
   sources_header: 'Quellen:',
   status_file_indexed: 'indexiert',
   status_file_not_indexed: 'nicht indexiert',

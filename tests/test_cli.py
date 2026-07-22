@@ -13,7 +13,7 @@ from bundesrag.ingestion.pipeline import (
     IndexSummary,
     StatusSummary,
 )
-from bundesrag.rag.answer_agent import AnswerResult
+from bundesrag.rag.answer_agent import AnswerResult, Source
 
 runner = CliRunner()
 
@@ -167,11 +167,22 @@ def test_ask_command_prints_answer_and_sources(settings, mocker):
     mocker.patch.object(
         cli,
         "answer_question",
-        return_value=AnswerResult(answer_text="Die Antwort.", sources=["Antrag 19/1, S. 1"]),
+        return_value=AnswerResult(
+            answer_text="Die Antwort.",
+            sources=[
+                Source(
+                    index=1,
+                    citation="Antrag 19/1, S. 1",
+                    text="Auszug",
+                    page=1,
+                    source_url=None,
+                )
+            ],
+        ),
     )
 
     result = runner.invoke(cli.app, ["ask", "Worum geht es?"])
 
     assert result.exit_code == 0
     assert "Die Antwort." in result.stdout
-    assert "Antrag 19/1, S. 1" in result.stdout
+    assert "[1] Antrag 19/1, S. 1" in result.stdout

@@ -29,9 +29,27 @@ class ChatLlm(Protocol):
 
 
 @dataclass
+class Source:
+    """One retrieved chunk, numbered to match the [n] citations in the answer.
+
+    `index` is the chunk's number in the context block sent to the LLM, so a
+    [n] in the answer text refers to the source with `index == n`. `text` is
+    the retrieved chunk text itself (shown in the web UI so users can verify
+    the answer against it); `page`/`source_url` allow deep-linking into the
+    source PDF (`source_url#page=N`).
+    """
+
+    index: int
+    citation: str
+    text: str
+    page: int | None
+    source_url: str | None
+
+
+@dataclass
 class AnswerResult:
     answer_text: str
-    sources: list[str]
+    sources: list[Source]
 
 
 def format_context(docs: Sequence[Document]) -> str:
@@ -75,13 +93,19 @@ def answer_question(
     response = llm.invoke(messages)
     answer_text = getattr(response, "content", response)
 
-    seen: set[str] = set()
-    sources = []
-    for doc, score in results:
-        key = citation_for(doc)
-        if key not in seen:
-            seen.add(key)
-            sources.append(citation_for(doc, score))
+    # One source per retrieved chunk, numbered like the context block above —
+    # no deduplication, since a [n] citation in the answer must resolve to
+    # exactly the chunk the LLM saw as [n].
+    sources = [
+        Source(
+            index=i,
+            citation=citation_for(doc, score),
+            text=doc.page_content,
+            page=doc.metadata.get("page"),
+            source_url=doc.metadata.get("source_url"),
+        )
+        for i, (doc, score) in enumerate(results, start=1)
+    ]
 
     return AnswerResult(answer_text=answer_text, sources=sources)
 

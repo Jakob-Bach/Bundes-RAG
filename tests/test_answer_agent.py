@@ -10,6 +10,7 @@ def _doc(text: str, label: str, page: int, dokumentnummer: str) -> Document:
             "citation_label": label,
             "page": page,
             "dokumentnummer": dokumentnummer,
+            "source_url": f"https://example.org/{dokumentnummer}.pdf",
         },
     )
 
@@ -39,7 +40,7 @@ def test_citation_for_appends_similarity_score():
     )
 
 
-def test_answer_question_builds_prompt_and_dedupes_sources(settings, mocker):
+def test_answer_question_numbers_sources_like_context(settings, mocker):
     docs = [
         _doc("Erster.", "Antrag 19/1", 1, "19/1"),
         _doc("Zweiter.", "Antrag 19/1", 1, "19/1"),
@@ -51,12 +52,20 @@ def test_answer_question_builds_prompt_and_dedupes_sources(settings, mocker):
     ]
 
     llm = mocker.Mock()
-    llm.invoke.return_value = mocker.Mock(content="Die Antwort lautet ... [1]")
+    llm.invoke.return_value = mocker.Mock(content="Die Antwort lautet ... [2]")
 
     result = answer_question("Worum geht es?", settings, llm=llm, vectorstore=vectorstore)
 
-    assert result.answer_text == "Die Antwort lautet ... [1]"
-    assert result.sources == ["Antrag 19/1, S. 1, Drucksache/Protokoll 19/1 (Ähnlichkeit: 0.90)"]
+    assert result.answer_text == "Die Antwort lautet ... [2]"
+    # One source per retrieved chunk, numbered like the context block — even
+    # for chunks sharing the same citation — so [2] resolves to its chunk.
+    assert [source.index for source in result.sources] == [1, 2]
+    assert result.sources[0].citation == (
+        "Antrag 19/1, S. 1, Drucksache/Protokoll 19/1 (Ähnlichkeit: 0.90)"
+    )
+    assert result.sources[1].text == "Zweiter."
+    assert result.sources[1].page == 1
+    assert result.sources[1].source_url == "https://example.org/19/1.pdf"
     messages = llm.invoke.call_args[0][0]
     assert messages[0]["role"] == "system"
     assert "Worum geht es?" in messages[1]["content"]
