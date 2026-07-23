@@ -133,15 +133,19 @@ docstrings, runtime output is localized via i18n).
    (`ask_no_filter_match`) is returned as the answer. Chamber (BT/BR) is
    deliberately not filterable: it isn't recorded anywhere per document.
 2. Retrieved chunks are formatted into a numbered context block
-   (`format_context`); the chat LLM is instructed (German system prompt that
-   names the configured answer language) to cite passages by number, to say
+   (`format_context`); each chunk's header carries the document label with
+   its date appended (`_dated_label` — skipped when the label already embeds
+   it, as fallback labels from `pdf_loader.citation_label` do) so the LLM
+   can answer time-related questions. The chat LLM is instructed (German
+   system prompt that names the configured answer language, and points out
+   the date in the excerpt headers) to cite passages by number, to say
    explicitly when the context doesn't answer the question rather than guess,
    and to answer in `settings.language`.
 3. A sources list is returned alongside the answer text: one `Source` per
    retrieved chunk — deliberately not deduplicated, since `Source.index` must
    match the context numbering so a `[n]` in the answer resolves to exactly
    the chunk the LLM saw as `[n]`. Each carries the formatted citation
-   (`citation_for`: label, page, document number, similarity score), the
+   (`citation_for`: dated label, page, document number, similarity score), the
    retrieved chunk text, the page, and the source PDF URL. The CLI prints
    `[n] citation` lines; the web UI (ask view) renders each `[n]` in the
    answer as a link that scrolls to and highlights that source, links each

@@ -16,10 +16,12 @@ from bundesrag.usage import OperationUsage, UsageTracker, record_operation
 
 SYSTEM_PROMPT_TEMPLATE = """\
 Du beantwortest Fragen zu deutschen Bundestagsdokumenten ausschließlich auf \
-Basis der bereitgestellten Textauszüge. Zitiere relevante Aussagen mit der \
-Nummer des jeweiligen Auszugs in eckigen Klammern, z. B. [2]. Wenn die \
-Auszüge die Frage nicht beantworten können, sage das ausdrücklich, anstatt \
-zu raten. Antworte in {language}.
+Basis der bereitgestellten Textauszüge. Jeder Auszug beginnt mit einer \
+Kopfzeile, die den Titel des Dokuments, in Klammern sein Datum (JJJJ-MM-TT) \
+und die Seite nennt — nutze dieses Datum für zeitbezogene Fragen. Zitiere \
+relevante Aussagen mit der Nummer des jeweiligen Auszugs in eckigen \
+Klammern, z. B. [2]. Wenn die Auszüge die Frage nicht beantworten können, \
+sage das ausdrücklich, anstatt zu raten. Antworte in {language}.
 """
 
 
@@ -57,10 +59,23 @@ class AnswerResult:
     usage: OperationUsage = field(default_factory=OperationUsage)
 
 
+def _dated_label(doc: Document) -> str:
+    """Citation label with the document date appended, e.g. "Antrag 19/1 (2025-03-14)".
+
+    The `not in` guard avoids doubling the date for fallback labels that
+    already embed it (see `pdf_loader.citation_label`).
+    """
+    label = doc.metadata.get("citation_label", t("unknown_document"))
+    datum = doc.metadata.get("datum")
+    if datum and datum not in label:
+        label += f" ({datum})"
+    return label
+
+
 def format_context(docs: Sequence[Document]) -> str:
     parts = []
     for i, doc in enumerate(docs, start=1):
-        label = doc.metadata.get("citation_label", t("unknown_document"))
+        label = _dated_label(doc)
         page = doc.metadata.get("page")
         header = f"[{i}] {label}" + (t("page_suffix", page=page) if page else "")
         parts.append(f"{header}\n{doc.page_content}")
@@ -68,7 +83,7 @@ def format_context(docs: Sequence[Document]) -> str:
 
 
 def citation_for(doc: Document, score: float | None = None) -> str:
-    label = doc.metadata.get("citation_label", t("unknown_document"))
+    label = _dated_label(doc)
     page = doc.metadata.get("page")
     dokumentnummer = doc.metadata.get("dokumentnummer")
     parts = [label]
