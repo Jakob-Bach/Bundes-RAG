@@ -14,3 +14,13 @@ def test_retrieve_delegates_to_similarity_search_with_score(mocker):
     vectorstore.similarity_search_with_score.assert_called_once_with(
         "Wann wurde der EU AI Act debattiert?", k=3
     )
+
+
+def test_retrieve_passes_where_as_metadata_filter(mocker):
+    vectorstore = mocker.Mock()
+    vectorstore.similarity_search_with_score.return_value = []
+    where = {"pdf_path": {"$in": ["data/pdfs/drucksache/21_5.pdf"]}}
+
+    retrieve("Frage", vectorstore, top_k=3, where=where)
+
+    vectorstore.similarity_search_with_score.assert_called_once_with("Frage", k=3, filter=where)

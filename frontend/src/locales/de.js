@@ -6,6 +6,12 @@ export default {
     '{num_matched} Dokumente gefunden, davon {num_existing} bereits heruntergeladen. ' +
     'Wie viele der verbleibenden {num_to_download} sollen heruntergeladen werden ' +
     '(die neuesten zuerst, 0 zum Abbrechen)?',
+  ask_filter_datum_end: 'Datum bis',
+  ask_filter_datum_start: 'Datum von',
+  ask_filter_kind: 'Dokumentart',
+  ask_filter_kind_all: 'Alle',
+  ask_filter_wahlperiode: 'Wahlperiode',
+  ask_filters_summary: 'Filter (optional)',
   ask_placeholder: 'Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelligenz?',
   ask_question_label: 'Frage zu den indexierten Dokumenten',
   ask_submit: 'Frage stellen',

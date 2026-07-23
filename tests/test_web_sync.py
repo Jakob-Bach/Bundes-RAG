@@ -5,7 +5,12 @@ from pypdf import PdfWriter
 
 from bundesrag.config import Settings
 from bundesrag.i18n import set_language, t
-from bundesrag.ingestion.manifest import PendingDocument, add_pending
+from bundesrag.ingestion.manifest import (
+    DocumentInfo,
+    PendingDocument,
+    add_pending,
+    save_indexed_info,
+)
 from bundesrag.usage import OperationUsage, record_operation
 from bundesrag.web.app import create_app
 from bundesrag.web.dependencies import (
@@ -76,6 +81,58 @@ def test_ask_returns_answer_with_sources(client, vectorstore, chat_llm):
     assert body["usage"]["chat_calls"] == 1
     assert body["usage"]["total_tokens"] == 0
     assert body["usage"]["currency"] == "EUR"
+
+
+def _indexed_info(dokumentnummer: str, datum: str) -> DocumentInfo:
+    return DocumentInfo(
+        doc_id="id",
+        dokumentnummer=dokumentnummer,
+        citation_label="Titel",
+        datum=datum,
+        source_url=None,
+        num_chunks=2,
+        num_pages=1,
+    )
+
+
+def test_ask_filters_restrict_retrieval(client, vectorstore, chat_llm, settings):
+    matching = settings.pdf_dir / "drucksache" / "21_5.pdf"
+    other = settings.pdf_dir / "plenarprotokoll" / "20_10.pdf"
+    save_indexed_info(
+        settings,
+        {
+            matching: _indexed_info("21/5", "2025-03-14"),
+            other: _indexed_info("20/10", "2023-01-02"),
+        },
+    )
+    vectorstore.similarity_search_with_score.return_value = []
+
+    response = client.post(
+        "/api/ask",
+        json={"question": "Worum geht es?", "filters": {"kind": "drucksache", "wahlperiode": 21}},
+    )
+
+    assert response.status_code == 200
+    vectorstore.similarity_search_with_score.assert_called_once_with(
+        "Worum geht es?",
+        k=settings.retrieval_top_k,
+        filter={"pdf_path": {"$in": [str(matching)]}},
+    )
+
+
+def test_ask_filters_without_match_return_message_without_llm_call(client, vectorstore, chat_llm):
+    response = client.post(
+        "/api/ask", json={"question": "Worum geht es?", "filters": {"wahlperiode": 21}}
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["answer_text"] == t("ask_no_filter_match")
+    assert body["sources"] == []
+    # No retrieval, no chat call — and therefore no usage block either.
+    assert body["usage"] is None
+    vectorstore.similarity_search_with_score.assert_not_called()
+    chat_llm.invoke.assert_not_called()
 
 
 def test_ask_returns_500_on_unexpected_error(client, vectorstore, chat_llm):

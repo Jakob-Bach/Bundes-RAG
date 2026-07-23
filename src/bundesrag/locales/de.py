@@ -2,6 +2,7 @@ MESSAGES = {
     "answer_must_be_integer": "Die Antwort muss eine ganze Zahl sein.",
     "app_help": "Lade Bundestagsdokumente herunter und stelle Fragen dazu.",
     "ask_help": "Beantwortet QUESTION auf Basis der gespeicherten Dokumente.",
+    "ask_no_filter_match": "Keine indexierten Dokumente entsprechen den gewählten Filtern.",
     "ask_query_feedback": "Was soll an der Abfrage angepasst werden?",
     "clear_help": "Löscht alle heruntergeladenen Dokumente und setzt die Vektordatenbank zurück.",
     "clear_yes_option_help": "Ohne Rückfrage löschen.",

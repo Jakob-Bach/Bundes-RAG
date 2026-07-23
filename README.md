@@ -101,6 +101,18 @@ source document and page for each retrieved passage. In the web UI each
 to the original PDF opened at the cited page, and an expandable panel shows
 the retrieved text itself so the answer can be verified against it.
 
+The web UI's ask page additionally offers optional metadata filters (a
+collapsible panel below the question) that scope the question to a
+Wahlperiode, a date range, and/or a document kind (Drucksache or
+Plenarprotokoll): only passages from indexed documents matching all set
+filters are retrieved, which noticeably improves relevance on large, mixed
+corpora. When no indexed document matches the filters, the answer says so
+instead of consulting the LLM. The filters work on already-indexed
+documents without re-indexing (they are resolved against the per-document
+metadata recorded in `data/indexed_docs.json`; for documents indexed by
+older versions, run `status` once to backfill it). The CLI's `ask` command
+has no filter options.
+
 ### Check download/index status
 
 ```sh

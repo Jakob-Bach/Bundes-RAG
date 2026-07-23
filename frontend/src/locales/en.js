@@ -6,6 +6,12 @@ export default {
     '{num_matched} documents found, {num_existing} of them already downloaded. ' +
     'How many of the remaining {num_to_download} should be downloaded ' +
     '(most recent first, 0 to cancel)?',
+  ask_filter_datum_end: 'Date until',
+  ask_filter_datum_start: 'Date from',
+  ask_filter_kind: 'Document kind',
+  ask_filter_kind_all: 'All',
+  ask_filter_wahlperiode: 'Electoral term',
+  ask_filters_summary: 'Filters (optional)',
   ask_placeholder: 'Which legislative projects exist regarding artificial intelligence?',
   ask_question_label: 'Question about the indexed documents',
   ask_submit: 'Ask question',

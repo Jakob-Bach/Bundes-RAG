@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Literal
 
 from pydantic import BaseModel
@@ -136,8 +137,23 @@ class StatusResponse(BaseModel):
     usage_totals: dict[str, UsageTotalsResponse] = {}
 
 
+class AskFiltersRequest(BaseModel):
+    """Optional document-level restrictions on which indexed documents the
+    ask retrieval may draw from (web-only; the CLI has no counterpart).
+
+    Resolved against the indexed-docs manifest, not the DIP API — see
+    rag/filters.py. `kind` is the DIP endpoint the document came from.
+    """
+
+    wahlperiode: int | None = None
+    datum_start: date | None = None
+    datum_end: date | None = None
+    kind: Literal["drucksache", "plenarprotokoll"] | None = None
+
+
 class AskRequest(BaseModel):
     question: str
+    filters: AskFiltersRequest | None = None
 
 
 class SourceResponse(BaseModel):

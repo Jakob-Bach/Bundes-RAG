@@ -10,6 +10,7 @@ from bundesrag.config import Settings
 from bundesrag.i18n import t
 from bundesrag.locales import LANGUAGE_NAMES
 from bundesrag.progress import step
+from bundesrag.rag.filters import AskFilters, matching_pdf_paths
 from bundesrag.rag.retriever import retrieve
 from bundesrag.usage import OperationUsage, UsageTracker, record_operation
 
@@ -82,15 +83,30 @@ def citation_for(doc: Document, score: float | None = None) -> str:
 
 
 def answer_question(
-    question: str, settings: Settings, *, llm: ChatLlm, vectorstore: Chroma
+    question: str,
+    settings: Settings,
+    *,
+    llm: ChatLlm,
+    vectorstore: Chroma,
+    filters: AskFilters | None = None,
 ) -> AnswerResult:
     usage = UsageTracker()
     # record_operation runs in a finally so a failed ask still accounts for
     # the tokens it consumed (e.g. the query embedding before a chat error).
     try:
+        # Active filters (web UI only; the CLI leaves them unset) restrict
+        # retrieval to the matching documents' chunks. When nothing matches,
+        # skip retrieval and the chat call entirely — an empty $in filter is
+        # invalid in Chroma, and the LLM would have no context anyway.
+        where = None
+        if filters is not None and filters.is_active:
+            paths = matching_pdf_paths(filters, settings)
+            if not paths:
+                return AnswerResult(answer_text=t("ask_no_filter_match"), sources=[])
+            where = {"pdf_path": {"$in": paths}}
         step(1, 2, t("step_search_passages"))
         with usage.track_embeddings(vectorstore):
-            results = retrieve(question, vectorstore, settings.retrieval_top_k)
+            results = retrieve(question, vectorstore, settings.retrieval_top_k, where=where)
         docs = [doc for doc, _ in results]
 
         step(2, 2, t("step_generate_answer"))

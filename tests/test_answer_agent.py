@@ -2,7 +2,9 @@ from types import SimpleNamespace
 
 from langchain_core.documents import Document
 
+from bundesrag.ingestion.manifest import DocumentInfo, save_indexed_info
 from bundesrag.rag.answer_agent import answer_question, citation_for, format_context
+from bundesrag.rag.filters import AskFilters
 from bundesrag.usage import load_usage_totals
 
 
@@ -93,3 +95,66 @@ def test_answer_question_records_token_usage(settings, mocker):
     totals = load_usage_totals(settings)
     assert totals["ask"].num_operations == 1
     assert totals["ask"].chat_input_tokens == 11
+
+
+def _indexed_info(dokumentnummer: str, datum: str) -> DocumentInfo:
+    return DocumentInfo(
+        doc_id="id",
+        dokumentnummer=dokumentnummer,
+        citation_label="Titel",
+        datum=datum,
+        source_url=None,
+        num_chunks=2,
+        num_pages=1,
+    )
+
+
+def test_answer_question_filters_restrict_retrieval_to_matching_documents(settings, mocker):
+    matching = settings.pdf_dir / "drucksache" / "21_5.pdf"
+    other = settings.pdf_dir / "plenarprotokoll" / "20_10.pdf"
+    save_indexed_info(
+        settings,
+        {
+            matching: _indexed_info("21/5", "2025-03-14"),
+            other: _indexed_info("20/10", "2023-01-02"),
+        },
+    )
+    vectorstore = mocker.Mock()
+    vectorstore.similarity_search_with_score.return_value = [
+        (_doc("Erster.", "Antrag 21/5", 1, "21/5"), 0.1)
+    ]
+    llm = mocker.Mock()
+    llm.invoke.return_value = mocker.Mock(content="Die Antwort.")
+
+    answer_question(
+        "Worum geht es?",
+        settings,
+        llm=llm,
+        vectorstore=vectorstore,
+        filters=AskFilters(wahlperiode=21),
+    )
+
+    vectorstore.similarity_search_with_score.assert_called_once_with(
+        "Worum geht es?",
+        k=settings.retrieval_top_k,
+        filter={"pdf_path": {"$in": [str(matching)]}},
+    )
+
+
+def test_answer_question_without_filter_match_skips_retrieval_and_llm(settings, mocker):
+    # No indexed-docs manifest at all, so an active filter matches nothing.
+    vectorstore = mocker.Mock()
+    llm = mocker.Mock()
+
+    result = answer_question(
+        "Worum geht es?",
+        settings,
+        llm=llm,
+        vectorstore=vectorstore,
+        filters=AskFilters(kind="drucksache"),
+    )
+
+    assert result.answer_text == "Keine indexierten Dokumente entsprechen den gewählten Filtern."
+    assert result.sources == []
+    vectorstore.similarity_search_with_score.assert_not_called()
+    llm.invoke.assert_not_called()

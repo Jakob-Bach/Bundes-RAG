@@ -343,7 +343,7 @@ def run_delete_file(pdf_path: Path, settings: Settings, *, vectorstore: Chroma) 
     remove_indexed_info(settings, match.pdf_path)
 
 
-def _document_kind(pdf_path: Path, pdf_dir: Path) -> str:
+def document_kind(pdf_path: Path, pdf_dir: Path) -> str:
     # PDFs are stored under pdf_dir/<endpoint>/, so the first path component
     # below pdf_dir is the endpoint the document was downloaded from.
     parts = pdf_path.relative_to(pdf_dir).parts
@@ -371,7 +371,7 @@ def _scan_documents(settings: Settings) -> tuple[list[PendingDocument], StatusSu
         FileStatus(
             pdf_path=path,
             indexed=path not in pending_paths,
-            kind=_document_kind(path, settings.pdf_dir),
+            kind=document_kind(path, settings.pdf_dir),
         )
         for path in pdf_paths
     ]

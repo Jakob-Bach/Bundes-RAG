@@ -7,6 +7,7 @@ from bundesrag.i18n import t
 from bundesrag.ingestion.pipeline import run_delete_all, run_delete_file, run_status
 from bundesrag.logging_config import LOGGER_NAME
 from bundesrag.rag.answer_agent import answer_question
+from bundesrag.rag.filters import AskFilters
 from bundesrag.web.dependencies import (
     ChatLlmDep,
     MetadataVectorstoreDep,
@@ -45,9 +46,14 @@ def ask(
     llm: ChatLlmDep,
     vectorstore: VectorstoreDep,
 ) -> AskResponse:
-    logger.info("web ask query: %s", request.question)
+    logger.info("web ask query: %s (filters: %s)", request.question, request.filters)
+    # The request filter fields mirror AskFilters by name, so the dataclass can
+    # be built straight from the model dump.
+    filters = AskFilters(**request.filters.model_dump()) if request.filters is not None else None
     try:
-        result = answer_question(request.question, settings, llm=llm, vectorstore=vectorstore)
+        result = answer_question(
+            request.question, settings, llm=llm, vectorstore=vectorstore, filters=filters
+        )
     except Exception:
         logger.exception("web ask failed")
         raise HTTPException(status_code=500, detail=t("unexpected_error")) from None

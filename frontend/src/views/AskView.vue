@@ -4,10 +4,25 @@ import { ask } from '../api'
 import UsageStats from '../components/UsageStats.vue'
 
 const question = ref('')
+const filterKind = ref('')
+const filterWahlperiode = ref('')
+const filterDatumStart = ref('')
+const filterDatumEnd = ref('')
 const result = ref(null)
 const error = ref(null)
 const busy = ref(false)
 const highlighted = ref(null)
+
+// Only the filters the user actually set are sent; null means unfiltered
+// retrieval (the backend treats an all-empty filters object the same way).
+function buildFilters() {
+  const filters = {}
+  if (filterKind.value) filters.kind = filterKind.value
+  if (filterWahlperiode.value) filters.wahlperiode = Number(filterWahlperiode.value)
+  if (filterDatumStart.value) filters.datum_start = filterDatumStart.value
+  if (filterDatumEnd.value) filters.datum_end = filterDatumEnd.value
+  return Object.keys(filters).length ? filters : null
+}
 
 async function submit() {
   error.value = null
@@ -15,7 +30,7 @@ async function submit() {
   highlighted.value = null
   busy.value = true
   try {
-    result.value = await ask(question.value)
+    result.value = await ask(question.value, buildFilters())
   } catch (e) {
     error.value = e.message
   } finally {
@@ -73,6 +88,31 @@ function pdfLink(source) {
           required
         ></textarea>
       </label>
+      <details class="filters">
+        <summary>{{ $t('ask_filters_summary') }}</summary>
+        <div class="grid">
+          <label>
+            {{ $t('ask_filter_kind') }}
+            <select v-model="filterKind">
+              <option value="">{{ $t('ask_filter_kind_all') }}</option>
+              <option value="drucksache">{{ $t('kind_drucksache') }}</option>
+              <option value="plenarprotokoll">{{ $t('kind_plenarprotokoll') }}</option>
+            </select>
+          </label>
+          <label>
+            {{ $t('ask_filter_wahlperiode') }}
+            <input v-model="filterWahlperiode" type="number" min="1" step="1" />
+          </label>
+          <label>
+            {{ $t('ask_filter_datum_start') }}
+            <input v-model="filterDatumStart" type="date" />
+          </label>
+          <label>
+            {{ $t('ask_filter_datum_end') }}
+            <input v-model="filterDatumEnd" type="date" />
+          </label>
+        </div>
+      </details>
       <button type="submit" :disabled="busy" :aria-busy="busy">{{ $t('ask_submit') }}</button>
     </form>
     <p v-if="error">{{ error }}</p>

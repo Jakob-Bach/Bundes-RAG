@@ -52,8 +52,9 @@ export function cancelIndexJob(id) {
   return request(`/api/index/${id}/cancel`, { method: 'POST' })
 }
 
-export function ask(question) {
-  return request('/api/ask', { method: 'POST', body: JSON.stringify({ question }) })
+export function ask(question, filters = null) {
+  const body = filters ? { question, filters } : { question }
+  return request('/api/ask', { method: 'POST', body: JSON.stringify(body) })
 }
 
 export function clear(confirmed) {

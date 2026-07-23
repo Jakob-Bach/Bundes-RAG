@@ -2,6 +2,7 @@ MESSAGES = {
     "answer_must_be_integer": "The answer must be an integer.",
     "app_help": "Download Bundestag documents and ask questions about them.",
     "ask_help": "Answers QUESTION based on the stored documents.",
+    "ask_no_filter_match": "No indexed documents match the selected filters.",
     "ask_query_feedback": "What should be adjusted about the query?",
     "clear_help": "Deletes all downloaded documents and resets the vector store.",
     "ask_download_count": (

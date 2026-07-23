@@ -116,7 +116,22 @@ docstrings, runtime output is localized via i18n).
 
 **`ask` pipeline** (`rag/answer_agent.py: answer_question`):
 1. `rag/retriever.py: retrieve` does a similarity search against the Chroma
-   store for `settings.retrieval_top_k` chunks.
+   store for `settings.retrieval_top_k` chunks. The web UI (not the CLI) can
+   scope the question via optional metadata filters (`rag/filters.py:
+   AskFilters`: wahlperiode, date range, document kind) rendered as a
+   collapsible panel in the ask view. Chunks don't store wahlperiode/kind and
+   Chroma's range operators are numeric-only (so the ISO `datum` string can't
+   be range-filtered natively either); the filters are therefore resolved
+   document-level against the indexed-docs manifest (wahlperiode parsed from
+   the dokumentnummer, kind from the endpoint subdirectory of the PDF path)
+   and passed to the similarity search as a `pdf_path $in` where-filter —
+   which works for already-indexed corpora without re-indexing, but excludes
+   documents missing from the manifest while a filter is active (indexed by
+   an old version with no `status` run since to backfill it). When no
+   document matches, retrieval and the chat call are skipped entirely (an
+   empty `$in` is invalid in Chroma) and a localized notice
+   (`ask_no_filter_match`) is returned as the answer. Chamber (BT/BR) is
+   deliberately not filterable: it isn't recorded anywhere per document.
 2. Retrieved chunks are formatted into a numbered context block
    (`format_context`); the chat LLM is instructed (German system prompt that
    names the configured answer language) to cite passages by number, to say
@@ -308,7 +323,7 @@ wire it to the job's cancel flag.
 
 **Web layer** (`src/bundesrag/web/`): additive over the pipelines — the only
 pipeline changes made for it are the optional `on_progress` and
-`should_cancel` callbacks above. `app.py: create_app` (uvicorn
+`should_cancel` callbacks above and the optional ask `filters`. `app.py: create_app` (uvicorn
 factory used by the `serve` CLI command) stores `Settings` and a `JobManager`
 on `app.state` and mounts `frontend/dist` as static files (path overridable
 via `BUNDESRAG_FRONTEND_DIST`; if missing, the API still runs). Fast
