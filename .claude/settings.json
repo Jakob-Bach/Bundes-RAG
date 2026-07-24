@@ -1,6 +1,12 @@
 {
   "permissions": {
     "allow": [
+      "Bash(npm run build)",
+      "Bash(uv run pytest)",
+      "Bash(uv run pytest -q)",
+      "Bash(uv run ruff check .)",
+      "Bash(uv run ruff check . --fix)",
+      "Bash(uv run ruff format .)",
       "PowerShell(npm run build)",
       "PowerShell(uv run pytest)",
       "PowerShell(uv run pytest -q)",

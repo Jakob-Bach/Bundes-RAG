@@ -57,4 +57,5 @@
     - In particular, repo's directory was listed multiple times in file (with different slashes and capitalization), depending on how opened
   - Claude often used compound commands (two commands separated by `;`) or slight variations not matching the whitelist
     - Reminded several times to avoid this, Claude itself wrote this to memory four times
+  - When commands whitelisted for `PowerShell`, Claude sometimes tried to invoke them via `Bash` (which requires separate whitelisting)
 - When introducing LLM usage statistics, the initially generated unit tests assumed certain hardcoded token costs, which caused some tests to fail once costs were adapted in `config.py` (fix: set costs in test explictly)
