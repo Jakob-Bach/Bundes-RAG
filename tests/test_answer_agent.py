@@ -91,6 +91,65 @@ def test_answer_question_numbers_sources_like_context(settings, mocker):
     assert "Worum geht es?" in messages[1]["content"]
 
 
+def test_answer_question_reports_ask_stats(settings, mocker):
+    save_indexed_info(
+        settings,
+        {
+            settings.pdf_dir / "drucksache" / "19_1.pdf": _indexed_info("19/1", "2025-03-14"),
+            settings.pdf_dir / "drucksache" / "19_2.pdf": _indexed_info("19/2", "2025-04-01"),
+        },
+    )
+    vectorstore = mocker.Mock()
+    vectorstore._collection.count.return_value = 42
+    vectorstore.similarity_search_with_score.return_value = [
+        (_doc("Erster.", "Antrag 19/1", 1, "19/1"), 0.1)
+    ]
+    llm = mocker.Mock()
+    llm.invoke.return_value = mocker.Mock(content="Die Antwort.")
+
+    result = answer_question("Worum geht es?", settings, llm=llm, vectorstore=vectorstore)
+
+    assert result.ask_stats.num_documents == 2
+    assert result.ask_stats.num_chunks == 42
+    assert result.ask_stats.top_k == settings.retrieval_top_k
+    # No filter, so the filtered figures stay unset.
+    assert result.ask_stats.num_filtered_documents is None
+    assert result.ask_stats.num_filtered_chunks is None
+
+
+def test_answer_question_reports_filtered_ask_stats(settings, mocker):
+    matching = settings.pdf_dir / "drucksache" / "21_5.pdf"
+    other = settings.pdf_dir / "plenarprotokoll" / "20_10.pdf"
+    save_indexed_info(
+        settings,
+        {
+            matching: _indexed_info("21/5", "2025-03-14"),
+            other: _indexed_info("20/10", "2023-01-02"),
+        },
+    )
+    vectorstore = mocker.Mock()
+    vectorstore._collection.count.return_value = 4
+    vectorstore.similarity_search_with_score.return_value = [
+        (_doc("Erster.", "Antrag 21/5", 1, "21/5"), 0.1)
+    ]
+    llm = mocker.Mock()
+    llm.invoke.return_value = mocker.Mock(content="Die Antwort.")
+
+    result = answer_question(
+        "Worum geht es?",
+        settings,
+        llm=llm,
+        vectorstore=vectorstore,
+        filters=AskFilters(wahlperiode=21),
+    )
+
+    assert result.ask_stats.num_documents == 2
+    assert result.ask_stats.num_chunks == 4
+    # Only the one wahlperiode-21 document matches; each _indexed_info has 2 chunks.
+    assert result.ask_stats.num_filtered_documents == 1
+    assert result.ask_stats.num_filtered_chunks == 2
+
+
 def test_answer_question_records_token_usage(settings, mocker):
     vectorstore = mocker.Mock()
     vectorstore.similarity_search_with_score.return_value = [

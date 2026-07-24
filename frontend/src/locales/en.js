@@ -6,6 +6,20 @@ export default {
     '{num_matched} documents found, {num_existing} of them already downloaded. ' +
     'How many of the remaining {num_to_download} should be downloaded ' +
     '(most recent first, 0 to cancel)?',
+  ask_stats_info:
+    'Answer based on {num_documents} indexed documents with {num_chunks} chunks, ' +
+    'selecting the {top_k} most relevant chunks.',
+  ask_stats_info_filtered:
+    'Answer based on {num_filtered_documents} of {num_documents} indexed documents ' +
+    'with {num_filtered_chunks} of {num_chunks} chunks (filter active), ' +
+    'selecting the {top_k} most relevant chunks.',
+  ask_stats_hint:
+    '{num_documents} documents with {num_chunks} chunks indexed. ' +
+    'The {top_k} most relevant chunks are selected.',
+  ask_stats_hint_filtered:
+    'Filter active: {num_filtered_documents} of {num_documents} documents and ' +
+    '{num_filtered_chunks} of {num_chunks} chunks match the filter. ' +
+    'The {top_k} most relevant chunks are selected.',
   ask_filter_datum_end: 'Date until',
   ask_filter_datum_start: 'Date from',
   ask_filter_kind: 'Document kind',

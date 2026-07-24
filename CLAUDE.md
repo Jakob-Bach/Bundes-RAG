@@ -152,6 +152,24 @@ docstrings, runtime output is localized via i18n).
    citation to the source PDF deep-linked to its page
    (`source_url#page=N`), and shows the retrieved chunk text per source in
    an expandable panel so users can verify the answer against it.
+4. `AnswerResult.ask_stats` (an `AskStats` from `rag/ask_stats.py:
+   compute_ask_stats` — the feature is named "ask stats" throughout, distinct
+   from the Mistral *usage* stats and the *status* summary) reports how large
+   the searched corpus is: the number of indexed documents
+   (`len(load_indexed_info)`), the total chunk count
+   (`collection_chunk_count`), and `retrieval_top_k`; when a filter is active
+   it also reports the matched document count and matched chunk count (summed
+   from the manifest's per-document `num_chunks`, since the vector store can't
+   be cheaply counted per filter). The CLI prints a separator between the
+   ask-stats line, the answer, and the usage block. Both interfaces preface
+   the answer with a localized line from these figures (`ask_stats_info` /
+   `ask_stats_info_filtered`) — the CLI via `cli._echo_ask_stats`, the SPA
+   rendering `AskResponse.ask_stats`. The web ask view additionally shows the
+   same figures *before* the question is submitted (`ask_stats_hint` /
+   `ask_stats_hint_filtered`, JS-only), refreshed whenever a filter changes
+   via `POST /api/ask/stats` (`routes_sync.ask_stats`, `AskStatsRequest` →
+   `AskStatsResponse`; uses `MetadataVectorstoreDep` since counting needs no
+   embeddings), so the strength of a filter can be judged up front.
 
 **`status` pipeline** (`ingestion/pipeline.py: run_status`): wraps
 `_scan_documents`, which first prunes pending entries whose PDF no longer
@@ -331,7 +349,8 @@ pipeline changes made for it are the optional `on_progress` and
 factory used by the `serve` CLI command) stores `Settings` and a `JobManager`
 on `app.state` and mounts `frontend/dist` as static files (path overridable
 via `BUNDESRAG_FRONTEND_DIST`; if missing, the API still runs). Fast
-operations (`/api/ask`, `/api/clear`, `/api/status`, and `/api/config` —
+operations (`/api/ask`, `/api/ask/stats` — the pre-ask corpus figures —
+`/api/clear`, `/api/status`, and `/api/config` —
 which exposes `settings.language` for the SPA's i18n bootstrap — in
 `routes_sync.py`) are plain sync endpoints; their `HTTPException` details
 are localized via `t()` (as are the job-route 400/404/409 details), while

@@ -96,7 +96,10 @@ uv run bundesrag ask "Welche Gesetzesvorhaben gibt es bzgl. künstlicher Intelli
 
 The answer is generated only from the indexed documents, cites passages by
 number (`[n]`), and is followed by a numbered "Quellen:" list naming the
-source document and page for each retrieved passage. In the web UI each
+source document and page for each retrieved passage. It is prefaced with a
+line stating how large the searched corpus is — how many documents and
+chunks are indexed and how many chunks (`RETRIEVAL_TOP_K`) were selected —
+so the basis of the answer is transparent. In the web UI each
 `[n]` in the answer is clickable and jumps to that source, each source links
 to the original PDF opened at the cited page, and an expandable panel shows
 the retrieved text itself so the answer can be verified against it.
@@ -106,7 +109,11 @@ collapsible panel below the question) that scope the question to a
 Wahlperiode, a date range, and/or a document kind (Drucksache or
 Plenarprotokoll): only passages from indexed documents matching all set
 filters are retrieved, which noticeably improves relevance on large, mixed
-corpora. When no indexed document matches the filters, the answer says so
+corpora. The page shows how many documents and chunks match the current
+filters (and the corpus totals) before the question is submitted, so the
+strength of a filter can be judged up front; when a filter is active, the
+line prefacing the answer reports the matched counts alongside the totals
+too. When no indexed document matches the filters, the answer says so
 instead of consulting the LLM. The filters work on already-indexed
 documents without re-indexing (they are resolved against the per-document
 metadata recorded in `data/indexed_docs.json`; for documents indexed by

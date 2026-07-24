@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel
 
 from bundesrag.config import Settings
+from bundesrag.rag.ask_stats import AskStats
 from bundesrag.usage import OperationUsage, UsageTotals, estimate_cost
 
 
@@ -156,6 +157,33 @@ class AskRequest(BaseModel):
     filters: AskFiltersRequest | None = None
 
 
+class AskStatsRequest(BaseModel):
+    """Filters for the pre-ask corpus figures (POST /api/ask/stats)."""
+
+    filters: AskFiltersRequest | None = None
+
+
+class AskStatsResponse(BaseModel):
+    """How large the corpus an ask searches is; `num_filtered_*` are set only
+    when a filter is active (None otherwise)."""
+
+    num_documents: int
+    num_chunks: int
+    top_k: int
+    num_filtered_documents: int | None = None
+    num_filtered_chunks: int | None = None
+
+
+def ask_stats_response(stats: AskStats) -> AskStatsResponse:
+    return AskStatsResponse(
+        num_documents=stats.num_documents,
+        num_chunks=stats.num_chunks,
+        top_k=stats.top_k,
+        num_filtered_documents=stats.num_filtered_documents,
+        num_filtered_chunks=stats.num_filtered_chunks,
+    )
+
+
 class SourceResponse(BaseModel):
     """One retrieved chunk; `index` matches the [n] citations in answer_text.
 
@@ -174,6 +202,7 @@ class SourceResponse(BaseModel):
 class AskResponse(BaseModel):
     answer_text: str
     sources: list[SourceResponse]
+    ask_stats: AskStatsResponse | None = None
     usage: UsageResponse | None = None
 
 

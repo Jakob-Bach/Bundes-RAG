@@ -10,6 +10,7 @@ from bundesrag.config import Settings
 from bundesrag.i18n import t
 from bundesrag.locales import LANGUAGE_NAMES
 from bundesrag.progress import step
+from bundesrag.rag.ask_stats import AskStats, compute_ask_stats
 from bundesrag.rag.filters import AskFilters, matching_pdf_paths
 from bundesrag.rag.retriever import retrieve
 from bundesrag.usage import OperationUsage, UsageTracker, record_operation
@@ -55,6 +56,9 @@ class Source:
 class AnswerResult:
     answer_text: str
     sources: list[Source]
+    # How large the searched corpus is (and, with a filter, how much of it
+    # matched); shown before the answer text.
+    ask_stats: AskStats | None = None
     # Mistral usage of this ask: one query embedding + one chat call.
     usage: OperationUsage = field(default_factory=OperationUsage)
 
@@ -106,6 +110,7 @@ def answer_question(
     filters: AskFilters | None = None,
 ) -> AnswerResult:
     usage = UsageTracker()
+    ask_stats = compute_ask_stats(settings, vectorstore, filters)
     # record_operation runs in a finally so a failed ask still accounts for
     # the tokens it consumed (e.g. the query embedding before a chat error).
     try:
@@ -117,7 +122,9 @@ def answer_question(
         if filters is not None and filters.is_active:
             paths = matching_pdf_paths(filters, settings)
             if not paths:
-                return AnswerResult(answer_text=t("ask_no_filter_match"), sources=[])
+                return AnswerResult(
+                    answer_text=t("ask_no_filter_match"), sources=[], ask_stats=ask_stats
+                )
             where = {"pdf_path": {"$in": paths}}
         step(1, 2, t("step_search_passages"))
         with usage.track_embeddings(vectorstore):
@@ -151,7 +158,9 @@ def answer_question(
         for i, (doc, score) in enumerate(results, start=1)
     ]
 
-    return AnswerResult(answer_text=answer_text, sources=sources, usage=usage.usage)
+    return AnswerResult(
+        answer_text=answer_text, sources=sources, ask_stats=ask_stats, usage=usage.usage
+    )
 
 
 def create_chat_llm(settings: Settings) -> ChatLlm:

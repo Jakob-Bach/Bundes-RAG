@@ -14,6 +14,7 @@ from bundesrag.ingestion.pipeline import (
     StatusSummary,
 )
 from bundesrag.rag.answer_agent import AnswerResult, Source
+from bundesrag.rag.ask_stats import AskStats
 
 runner = CliRunner()
 
@@ -186,3 +187,29 @@ def test_ask_command_prints_answer_and_sources(settings, mocker):
     assert result.exit_code == 0
     assert "Die Antwort." in result.stdout
     assert "[1] Antrag 19/1, S. 1" in result.stdout
+
+
+def test_ask_command_prints_ask_stats_before_answer(settings, mocker):
+    mocker.patch.object(cli, "Settings", return_value=settings)
+    mocker.patch.object(cli, "get_vectorstore", return_value=mocker.Mock())
+    mocker.patch.object(cli, "create_chat_llm", return_value=mocker.Mock())
+    mocker.patch.object(
+        cli,
+        "answer_question",
+        return_value=AnswerResult(
+            answer_text="Die Antwort.",
+            sources=[],
+            ask_stats=AskStats(num_documents=100, num_chunks=15234, top_k=5),
+        ),
+    )
+
+    result = runner.invoke(cli.app, ["ask", "Worum geht es?"])
+
+    assert result.exit_code == 0
+    stats_line = "100 indexierten Dokumenten mit 15234 Textabschnitten"
+    assert stats_line in result.stdout
+    assert "5 passendsten" in result.stdout
+    # A separator sits between the ask stats and the answer text.
+    assert "----------" in result.stdout
+    assert result.stdout.index(stats_line) < result.stdout.index("----------")
+    assert result.stdout.index("----------") < result.stdout.index("Die Antwort.")

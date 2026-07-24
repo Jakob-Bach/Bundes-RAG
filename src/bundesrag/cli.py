@@ -18,6 +18,7 @@ from bundesrag.logging_config import LOGGER_NAME, setup_logging
 from bundesrag.query_agent.agent import create_query_agent, format_filters
 from bundesrag.query_agent.schema import DipQueryFilters
 from bundesrag.rag.answer_agent import answer_question, create_chat_llm
+from bundesrag.rag.ask_stats import AskStats
 from bundesrag.usage import OPERATION_KINDS, OperationUsage, estimate_cost
 from bundesrag.vectorstore import get_vectorstore
 
@@ -29,6 +30,10 @@ set_language(detect_language())
 app = typer.Typer(help=t("app_help"))
 
 logger = logging.getLogger(LOGGER_NAME)
+
+# Divides the ask output into its three parts (corpus stats / answer / usage);
+# in the web UI these are already set apart by colour.
+_SEPARATOR = "-" * 40
 
 
 def _init() -> Settings:
@@ -57,6 +62,30 @@ def _confirm(text: str) -> bool:
 def _confirm_filters(filters: DipQueryFilters) -> bool:
     typer.echo(format_filters(filters))
     return _confirm(t("confirm_use_query_yn"))
+
+
+def _echo_ask_stats(stats: AskStats) -> None:
+    """Prints how large the searched corpus is, before the answer text."""
+    if stats.num_filtered_documents is not None:
+        typer.echo(
+            t(
+                "ask_stats_info_filtered",
+                num_filtered_documents=stats.num_filtered_documents,
+                num_documents=stats.num_documents,
+                num_filtered_chunks=stats.num_filtered_chunks,
+                num_chunks=stats.num_chunks,
+                top_k=stats.top_k,
+            )
+        )
+    else:
+        typer.echo(
+            t(
+                "ask_stats_info",
+                num_documents=stats.num_documents,
+                num_chunks=stats.num_chunks,
+                top_k=stats.top_k,
+            )
+        )
 
 
 def _echo_index_counts(counts: IndexCounts) -> None:
@@ -274,10 +303,15 @@ def ask(question: str) -> None:
         typer.echo(t("unexpected_error"))
         raise typer.Exit(code=1) from None
     logger.info("ask succeeded: %d sources", len(result.sources))
+    if result.ask_stats is not None:
+        _echo_ask_stats(result.ask_stats)
+        typer.echo(_SEPARATOR)
     typer.echo(result.answer_text)
     typer.echo(t("sources_header"))
     for source in result.sources:
         typer.echo(f"  [{source.index}] {source.citation}")
+    if result.usage.has_usage:
+        typer.echo(_SEPARATOR)
     _echo_usage(result.usage, settings)
 
 

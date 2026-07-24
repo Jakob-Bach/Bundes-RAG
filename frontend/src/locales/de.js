@@ -6,6 +6,20 @@ export default {
     '{num_matched} Dokumente gefunden, davon {num_existing} bereits heruntergeladen. ' +
     'Wie viele der verbleibenden {num_to_download} sollen heruntergeladen werden ' +
     '(die neuesten zuerst, 0 zum Abbrechen)?',
+  ask_stats_info:
+    'Antwort basierend auf {num_documents} indexierten Dokumenten mit {num_chunks} ' +
+    'Textabschnitten, unter Auswahl der {top_k} passendsten Textabschnitte.',
+  ask_stats_info_filtered:
+    'Antwort basierend auf {num_filtered_documents} von {num_documents} indexierten ' +
+    'Dokumenten mit {num_filtered_chunks} von {num_chunks} Textabschnitten (Filter aktiv), ' +
+    'unter Auswahl der {top_k} passendsten Textabschnitte.',
+  ask_stats_hint:
+    '{num_documents} Dokumente mit {num_chunks} Textabschnitten indexiert. ' +
+    'Ausgewählt werden die {top_k} passendsten Textabschnitte.',
+  ask_stats_hint_filtered:
+    'Filter aktiv: {num_filtered_documents} von {num_documents} Dokumenten und ' +
+    '{num_filtered_chunks} von {num_chunks} Textabschnitten entsprechen dem Filter. ' +
+    'Ausgewählt werden die {top_k} passendsten Textabschnitte.',
   ask_filter_datum_end: 'Datum bis',
   ask_filter_datum_start: 'Datum von',
   ask_filter_kind: 'Dokumentart',

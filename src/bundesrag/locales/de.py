@@ -1,6 +1,15 @@
 MESSAGES = {
     "answer_must_be_integer": "Die Antwort muss eine ganze Zahl sein.",
     "app_help": "Lade Bundestagsdokumente herunter und stelle Fragen dazu.",
+    "ask_stats_info": (
+        "Antwort basierend auf {num_documents} indexierten Dokumenten mit "
+        "{num_chunks} Textabschnitten, unter Auswahl der {top_k} passendsten Textabschnitte."
+    ),
+    "ask_stats_info_filtered": (
+        "Antwort basierend auf {num_filtered_documents} von {num_documents} indexierten "
+        "Dokumenten mit {num_filtered_chunks} von {num_chunks} Textabschnitten (Filter aktiv), "
+        "unter Auswahl der {top_k} passendsten Textabschnitte."
+    ),
     "ask_help": "Beantwortet QUESTION auf Basis der gespeicherten Dokumente.",
     "ask_no_filter_match": "Keine indexierten Dokumente entsprechen den gewählten Filtern.",
     "ask_query_feedback": "Was soll an der Abfrage angepasst werden?",

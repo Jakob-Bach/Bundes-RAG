@@ -7,6 +7,7 @@ from bundesrag.i18n import t
 from bundesrag.ingestion.pipeline import run_delete_all, run_delete_file, run_status
 from bundesrag.logging_config import LOGGER_NAME
 from bundesrag.rag.answer_agent import answer_question
+from bundesrag.rag.ask_stats import compute_ask_stats
 from bundesrag.rag.filters import AskFilters
 from bundesrag.web.dependencies import (
     ChatLlmDep,
@@ -17,6 +18,8 @@ from bundesrag.web.dependencies import (
 from bundesrag.web.schemas import (
     AskRequest,
     AskResponse,
+    AskStatsRequest,
+    AskStatsResponse,
     ClearRequest,
     ConfigResponse,
     DeleteFileRequest,
@@ -25,6 +28,7 @@ from bundesrag.web.schemas import (
     FileStatusResponse,
     SourceResponse,
     StatusResponse,
+    ask_stats_response,
     usage_response,
     usage_totals_response,
 )
@@ -60,6 +64,7 @@ def ask(
     logger.info("web ask succeeded: %d sources", len(result.sources))
     return AskResponse(
         answer_text=result.answer_text,
+        ask_stats=(ask_stats_response(result.ask_stats) if result.ask_stats is not None else None),
         usage=usage_response(result.usage, settings),
         sources=[
             SourceResponse(
@@ -72,6 +77,24 @@ def ask(
             for source in result.sources
         ],
     )
+
+
+@router.post("/ask/stats", response_model=AskStatsResponse)
+def ask_stats(
+    request: AskStatsRequest,
+    settings: SettingsDep,
+    vectorstore: MetadataVectorstoreDep,
+) -> AskStatsResponse:
+    # Lets the ask view show the corpus size (and, with a filter, how much of
+    # it matches) before the user submits — no embeddings needed, just the
+    # chunk count and the indexed-docs manifest.
+    filters = AskFilters(**request.filters.model_dump()) if request.filters is not None else None
+    try:
+        stats = compute_ask_stats(settings, vectorstore, filters)
+    except Exception:
+        logger.exception("web ask stats failed")
+        raise HTTPException(status_code=500, detail=t("unexpected_error")) from None
+    return ask_stats_response(stats)
 
 
 @router.post("/clear", response_model=DeleteSummaryResponse)

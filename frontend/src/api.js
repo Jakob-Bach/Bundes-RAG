@@ -57,6 +57,11 @@ export function ask(question, filters = null) {
   return request('/api/ask', { method: 'POST', body: JSON.stringify(body) })
 }
 
+export function askStats(filters = null) {
+  const body = filters ? { filters } : {}
+  return request('/api/ask/stats', { method: 'POST', body: JSON.stringify(body) })
+}
+
 export function clear(confirmed) {
   return request('/api/clear', { method: 'POST', body: JSON.stringify({ confirmed }) })
 }

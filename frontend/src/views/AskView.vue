@@ -1,6 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { ask } from '../api'
+import { computed, ref, watch } from 'vue'
+import { ask, askStats } from '../api'
 import UsageStats from '../components/UsageStats.vue'
 
 const question = ref('')
@@ -12,6 +12,10 @@ const result = ref(null)
 const error = ref(null)
 const busy = ref(false)
 const highlighted = ref(null)
+// Ask stats (corpus size) for the current filters, shown before the user asks
+// so they can judge how narrow their filter is. Refreshed whenever a filter
+// changes. Distinct from the LLM usage stats shown after the answer.
+const liveAskStats = ref(null)
 
 // Only the filters the user actually set are sent; null means unfiltered
 // retrieval (the backend treats an all-empty filters object the same way).
@@ -23,6 +27,45 @@ function buildFilters() {
   if (filterDatumEnd.value) filters.datum_end = filterDatumEnd.value
   return Object.keys(filters).length ? filters : null
 }
+
+// A monotonic token drops results of ask-stats requests overtaken by a newer
+// one (filters can change faster than the request round-trips).
+let askStatsToken = 0
+async function refreshAskStats() {
+  const token = ++askStatsToken
+  try {
+    const stats = await askStats(buildFilters())
+    if (token === askStatsToken) liveAskStats.value = stats
+  } catch {
+    if (token === askStatsToken) liveAskStats.value = null
+  }
+}
+
+// Renders the ask-stats figures as {key, params} for $t; used both for the
+// pre-ask hint (kind='hint') and the line prefacing an answer (kind='info').
+function askStatsMessage(stats, kind) {
+  if (!stats) return null
+  const filtered = stats.num_filtered_documents != null
+  return {
+    key: filtered ? `ask_stats_${kind}_filtered` : `ask_stats_${kind}`,
+    params: {
+      num_documents: stats.num_documents,
+      num_chunks: stats.num_chunks,
+      top_k: stats.top_k,
+      num_filtered_documents: stats.num_filtered_documents,
+      num_filtered_chunks: stats.num_filtered_chunks,
+    },
+  }
+}
+
+const askStatsHint = computed(() => askStatsMessage(liveAskStats.value, 'hint'))
+const answerAskStats = computed(() => askStatsMessage(result.value?.ask_stats, 'info'))
+
+watch(
+  [filterKind, filterWahlperiode, filterDatumStart, filterDatumEnd],
+  refreshAskStats,
+  { immediate: true },
+)
 
 async function submit() {
   error.value = null
@@ -113,10 +156,14 @@ function pdfLink(source) {
           </label>
         </div>
       </details>
+      <p v-if="askStatsHint" class="ask-stats-hint">{{ $t(askStatsHint.key, askStatsHint.params) }}</p>
       <button type="submit" :disabled="busy" :aria-busy="busy">{{ $t('ask_submit') }}</button>
     </form>
     <p v-if="error">{{ error }}</p>
     <article v-if="result">
+      <p v-if="answerAskStats" class="ask-stats-info">
+        {{ $t(answerAskStats.key, answerAskStats.params) }}
+      </p>
       <p class="answer">
         <template v-for="(part, i) in answerParts" :key="i">
           <span v-if="part.text">{{ part.text }}</span>
@@ -159,6 +206,11 @@ function pdfLink(source) {
 </template>
 
 <style scoped>
+.ask-stats-hint,
+.ask-stats-info {
+  color: var(--pico-muted-color, #6c757d);
+  font-size: 0.875em;
+}
 .answer {
   white-space: pre-wrap;
 }

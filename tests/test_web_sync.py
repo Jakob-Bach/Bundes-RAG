@@ -48,7 +48,7 @@ def chat_llm(app, mocker):
     return llm
 
 
-def test_ask_returns_answer_with_sources(client, vectorstore, chat_llm):
+def test_ask_returns_answer_with_sources(client, vectorstore, chat_llm, settings):
     vectorstore.similarity_search_with_score.return_value = [
         (
             Document(
@@ -81,6 +81,10 @@ def test_ask_returns_answer_with_sources(client, vectorstore, chat_llm):
     assert body["usage"]["chat_calls"] == 1
     assert body["usage"]["total_tokens"] == 0
     assert body["usage"]["currency"] == "EUR"
+    # The ask-stats figures are reported alongside the answer (no filter here).
+    assert body["ask_stats"]["num_chunks"] == 0
+    assert body["ask_stats"]["top_k"] == settings.retrieval_top_k
+    assert body["ask_stats"]["num_filtered_documents"] is None
 
 
 def _indexed_info(dokumentnummer: str, datum: str) -> DocumentInfo:
@@ -133,6 +137,52 @@ def test_ask_filters_without_match_return_message_without_llm_call(client, vecto
     assert body["usage"] is None
     vectorstore.similarity_search_with_score.assert_not_called()
     chat_llm.invoke.assert_not_called()
+
+
+def test_ask_stats_reports_corpus_size_without_filter(client, settings, vectorstore):
+    save_indexed_info(
+        settings,
+        {
+            settings.pdf_dir / "drucksache" / "21_5.pdf": _indexed_info("21/5", "2025-03-14"),
+            settings.pdf_dir / "drucksache" / "21_6.pdf": _indexed_info("21/6", "2025-04-01"),
+        },
+    )
+    vectorstore._collection.count.return_value = 7
+
+    response = client.post("/api/ask/stats", json={})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["num_documents"] == 2
+    assert body["num_chunks"] == 7
+    assert body["top_k"] == settings.retrieval_top_k
+    assert body["num_filtered_documents"] is None
+    assert body["num_filtered_chunks"] is None
+    # No embeddings or LLM call is needed just to count.
+    vectorstore.similarity_search_with_score.assert_not_called()
+
+
+def test_ask_stats_reports_filtered_corpus_size(client, settings, vectorstore):
+    matching = settings.pdf_dir / "drucksache" / "21_5.pdf"
+    other = settings.pdf_dir / "plenarprotokoll" / "20_10.pdf"
+    save_indexed_info(
+        settings,
+        {
+            matching: _indexed_info("21/5", "2025-03-14"),
+            other: _indexed_info("20/10", "2023-01-02"),
+        },
+    )
+    vectorstore._collection.count.return_value = 4
+
+    response = client.post("/api/ask/stats", json={"filters": {"wahlperiode": 21}})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["num_documents"] == 2
+    assert body["num_chunks"] == 4
+    # Only the wahlperiode-21 document matches; each has 2 chunks in the manifest.
+    assert body["num_filtered_documents"] == 1
+    assert body["num_filtered_chunks"] == 2
 
 
 def test_ask_returns_500_on_unexpected_error(client, vectorstore, chat_llm):

@@ -1,6 +1,15 @@
 MESSAGES = {
     "answer_must_be_integer": "The answer must be an integer.",
     "app_help": "Download Bundestag documents and ask questions about them.",
+    "ask_stats_info": (
+        "Answer based on {num_documents} indexed documents with {num_chunks} chunks, "
+        "selecting the {top_k} most relevant chunks."
+    ),
+    "ask_stats_info_filtered": (
+        "Answer based on {num_filtered_documents} of {num_documents} indexed documents "
+        "with {num_filtered_chunks} of {num_chunks} chunks (filter active), "
+        "selecting the {top_k} most relevant chunks."
+    ),
     "ask_help": "Answers QUESTION based on the stored documents.",
     "ask_no_filter_match": "No indexed documents match the selected filters.",
     "ask_query_feedback": "What should be adjusted about the query?",
